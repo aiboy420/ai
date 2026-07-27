@@ -217,7 +217,7 @@ commands.forEach(data => {
                     isForwarded: true,
                     forwardingScore: 999,
                     forwardedNewsletterMessageInfo: {
-                        newsletterJid: "120363410732696468@newsletter",
+                        newsletterJid: "120363410129201712@newsletter",
                         newsletterName: "NAWAZ-MD",
                         serverMessageId: Date.now()
                     }
