@@ -74,14 +74,19 @@ cmd({
         // FIRST MESSAGE
         // =========================
         const caption = `
-╭────────────────────────╮
-│      ⚡ 𝗡𝗔𝗪𝗔𝗭 𝗠𝗗 ⚡
-├────────────────────────┤
+╭──────────────────╮
+│   ⚡ 𝗡𝗔𝗪𝗔𝗭 𝗠𝗗 ⚡
+├──────────────────┤
+
 │ 📱 Number : ${phoneNumber}
+
 │ 🌐 Server : ${serverName}
+
 │ 🔐 Status : Ready
+
 │ ✅ Pair Generated
-╰────────────────────────╯
+
+╰──────────────────╯
 `.trim();
 
         await conn.sendMessage(
