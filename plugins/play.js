@@ -1,4 +1,4 @@
-// play.js - ESM Version (Without JawadTech API)
+// play.js - ESM Version (Fixed)
 // NAWAZ MD - YOUTUBE MUSIC DOWNLOADER
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -115,14 +115,20 @@ ytdata = search.videos[0];
 
 }
 
+// ✅ FIXED: Added missing closing parenthesis
 const caption = `
 ╭───────────────🎵
 │  *YOUTUBE MUSIC*
 ╰───────────────
+
 🎶 *Title:* ${ytdata.title}
+
 👤 *Channel:* ${ytdata.author?.name || "Unknown"}
+
 ⏱ *Duration:* ${ytdata.timestamp}
-👁 *Views:* ${ytdata.views.toLocaleString()
+
+👁 *Views:* ${ytdata.views?.toLocaleString() || "Unknown"}
+
 ────────────────────
 ⬇️ Downloading Audio...
 
