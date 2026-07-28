@@ -34,7 +34,7 @@ cmd({
 ✍️ *Example*: ${example}  
 📝 *Synonyms*: ${synonyms}  
 
-🔗 *Powered By Jawad Tech X*`;
+🔗 *Powered By Nawaz Tech X*`;
 
         if (audio) {
             await conn.sendMessage(from, { audio: { url: audio }, mimetype: 'audio/mpeg' }, { quoted: mek });
