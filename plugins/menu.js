@@ -1,98 +1,113 @@
+// menu.js - With Media Type Check
 import { fileURLToPath } from 'url';
 import path from 'path';
 import config from '../config.js';
 import { cmd, commands } from '../command.js';
 import { runtime } from '../lib/functions.js';
-import axios from 'axios';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Helper function for small caps text
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SMALL CAPS (Pre-cached for speed)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const SMALL_CAPS_MAP = {
+    'a': 'ᴀ','b':'ʙ','c':'ᴄ','d':'ᴅ','e':'ᴇ','f':'ғ','g':'ɢ','h':'ʜ','i':'ɪ',
+    'j':'ᴊ','k':'ᴋ','l':'ʟ','m':'ᴍ','n':'ɴ','o':'ᴏ','p':'ᴘ','q':'ǫ','r':'ʀ',
+    's':'s','t':'ᴛ','u':'ᴜ','v':'ᴠ','w':'ᴡ','x':'x','y':'ʏ','z':'ᴢ',
+    'A':'ᴀ','B':'ʙ','C':'ᴄ','D':'ᴅ','E':'ᴇ','F':'ғ','G':'ɢ','H':'ʜ','I':'ɪ',
+    'J':'ᴊ','K':'ᴋ','L':'ʟ','M':'ᴍ','N':'ɴ','O':'ᴏ','P':'ᴘ','Q':'ǫ','R':'ʀ',
+    'S':'s','T':'ᴛ','U':'ᴜ','V':'ᴠ','W':'ᴡ','X':'x','Y':'ʏ','Z':'ᴢ'
+};
+
 const toSmallCaps = (text) => {
     if (!text || typeof text !== 'string') return '';
-
-    const smallCapsMap = {
-        'a': 'ᴀ','b': 'ʙ','c': 'ᴄ','d': 'ᴅ','e': 'ᴇ','f': 'ғ','g': 'ɢ','h': 'ʜ','i': 'ɪ',
-        'j': 'ᴊ','k': 'ᴋ','l': 'ʟ','m': 'ᴍ','n': 'ɴ','o': 'ᴏ','p': 'ᴘ','q': 'ǫ','r': 'ʀ',
-        's': 's','t': 'ᴛ','u': 'ᴜ','v': 'ᴠ','w': 'ᴡ','x': 'x','y': 'ʏ','z': 'ᴢ',
-        'A': 'ᴀ','B': 'ʙ','C': 'ᴄ','D': 'ᴅ','E': 'ᴇ','F': 'ғ','G': 'ɢ','H': 'ʜ','I': 'ɪ',
-        'J': 'ᴊ','K': 'ᴋ','L': 'ʟ','M': 'ᴍ','N': 'ɴ','O': 'ᴏ','P': 'ᴘ','Q': 'ǫ','R': 'ʀ',
-        'S': 's','T': 'ᴛ','U': 'ᴜ','V': 'ᴠ','W': 'ᴡ','X': 'x','Y': 'ʏ','Z': 'ᴢ'
-    };
-
-    return text.split('').map(char => smallCapsMap[char] || char).join('');
+    return text.split('').map(c => SMALL_CAPS_MAP[c] || c).join('');
 };
 
-// Format category
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CATEGORY FORMAT (Optimized)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 const formatCategory = (category, cmds) => {
-    const validCmds = cmds.filter(cmd => cmd.pattern && cmd.pattern.trim() !== '');
+    const validCmds = cmds.filter(cmd => cmd.pattern && !cmd.dontAddCommandList);
     if (validCmds.length === 0) return '';
-
-    let title = `\n╭━━❰ ${category.toUpperCase()} ❱━━⬣\n`;
-    let body = validCmds.map(cmd => {
-        const commandName = cmd.pattern || '';
-        return `┃❖ ${toSmallCaps(commandName)}`;
-    }).join('\n');
-    let footer = `\n╰━━━━━━━━━━━━━━⬣`;
-
-    return `${title}${body}${footer}`;
+    
+    let body = '';
+    for (const c of validCmds) {
+        body += `┃❖ ${toSmallCaps(c.pattern)}\n`;
+    }
+    
+    return `\n╭━━❰ ${category.toUpperCase()} ❱━━⬣\n${body}╰━━━━━━━━━━━━━━⬣`;
 };
 
-// Media Type
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MEDIA TYPE (Pre-cached)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.gif'];
+
 const getMediaType = (url) => {
     if (!url || typeof url !== 'string' || url.trim() === '') return null;
-
     const urlLower = url.toLowerCase();
-
-    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
-    if (imageExtensions.some(ext => urlLower.endsWith(ext))) return 'image';
-
-    const videoExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.gif'];
-    if (videoExtensions.some(ext => urlLower.endsWith(ext))) return 'video';
-
+    if (IMAGE_EXTENSIONS.some(ext => urlLower.endsWith(ext))) return 'image';
+    if (VIDEO_EXTENSIONS.some(ext => urlLower.endsWith(ext))) return 'video';
     return null;
 };
 
-// Categories
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CATEGORY ORDER (Pre-defined for speed)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const PRIORITY_ORDER = ['islamic', 'download', 'group'];
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// GROUP COMMANDS (Optimized - Single Loop)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 const getCategorizedCommands = () => {
-    const commandsArray = Array.isArray(commands)
-        ? commands
-        : Object.values(commands);
-
-    let totalCommands = commandsArray.length;
-
-    const categories = [...new Set(commandsArray.map(c => c.category))]
-        .filter(cat => cat && cat.trim() !== '' && cat !== 'undefined');
-
-    const priorityOrder = ['islamic', 'download', 'group'];
-
-    const sortedCategories = categories.sort((a, b) => {
-        const aIndex = priorityOrder.indexOf(a);
-        const bIndex = priorityOrder.indexOf(b);
-
-        if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-        if (aIndex !== -1) return -1;
-        if (bIndex !== -1) return 1;
-
+    const commandsArray = Array.isArray(commands) ? commands : Object.values(commands);
+    const totalCommands = commandsArray.length;
+    
+    const categoryMap = {};
+    const categorySet = new Set();
+    
+    for (const c of commandsArray) {
+        const cat = c.category;
+        if (!cat || cat === 'undefined' || !cat.trim()) continue;
+        if (!c.pattern || c.pattern.trim() === '') continue;
+        if (c.dontAddCommandList) continue;
+        
+        if (!categoryMap[cat]) categoryMap[cat] = [];
+        categoryMap[cat].push(c);
+        categorySet.add(cat);
+    }
+    
+    const sortedCategories = Array.from(categorySet).sort((a, b) => {
+        const aIdx = PRIORITY_ORDER.indexOf(a);
+        const bIdx = PRIORITY_ORDER.indexOf(b);
+        if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+        if (aIdx !== -1) return -1;
+        if (bIdx !== -1) return 1;
         return a.localeCompare(b);
     });
-
+    
     const categorized = {};
-
-    sortedCategories.forEach(cat => {
-        const categoryCommands = commandsArray.filter(c => c.category === cat);
-        const validCommands = categoryCommands.filter(cmd => cmd.pattern && cmd.pattern.trim() !== '');
-
-        if (validCommands.length > 0)
-            categorized[cat] = validCommands;
-    });
-
+    for (const cat of sortedCategories) {
+        if (categoryMap[cat] && categoryMap[cat].length > 0) {
+            categorized[cat] = categoryMap[cat];
+        }
+    }
+    
     return { categorized, totalCommands };
 };
-// ===============================
-// MENU COMMAND
-// ===============================
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MAIN COMMAND
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 cmd({
     pattern: "menu",
     alias: ["m", "fullmenu"],
@@ -104,7 +119,7 @@ cmd({
 },
 async (conn, mek, m, { from, sender, reply, userConfig }) => {
     try {
-
+        // ─── Get config values ───
         const BOT_NAME = userConfig?.BOT_NAME || config.BOT_NAME || "NawazTechX";
         const OWNER_NAME = userConfig?.OWNER_NAME || config.OWNER_NAME || "Nawaz";
         const PREFIX = userConfig?.PREFIX || config.PREFIX || ".";
@@ -113,16 +128,18 @@ async (conn, mek, m, { from, sender, reply, userConfig }) => {
         const BOT_IMAGE = userConfig?.BOT_IMAGE || config.BOT_IMAGE || "";
         const DESCRIPTION = userConfig?.DESCRIPTION || config.DESCRIPTION || "";
 
+        // ─── Get categorized commands ───
         const { categorized, totalCommands } = getCategorizedCommands();
 
-        let menuSections = "";
-
-        for (const [category, cmds] of Object.entries(categorated)) {
-            if (cmds?.length) {
+        // ─── Build menu sections ───
+        let menuSections = '';
+        for (const [category, cmds] of Object.entries(categorized)) {
+            if (cmds && cmds.length > 0) {
                 menuSections += formatCategory(category, cmds);
             }
         }
 
+        // ─── Build menu text ───
         const dec = `╭━━❰ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳 ❱━━⬣
 ┃❖ Owner   : ${OWNER_NAME}
 ┃❖ Mode    : ${MODE}
@@ -142,16 +159,20 @@ ${menuSections}
 
 > ${DESCRIPTION}`;
 
+        // ─── 🔥 MEDIA TYPE CHECK (YOUR CODE) ───
         const mediaType = getMediaType(BOT_IMAGE);
 
-        const mediaData = mediaType
-            ? {
-                [mediaType]: {
-                    url: BOT_IMAGE
-                }
-            }
-            : {};
+        if (!mediaType) {
+            return reply("❌ BOT_IMAGE URL is invalid. Please check config.js");
+        }
 
+        const mediaData = {
+            [mediaType]: {
+                url: BOT_IMAGE
+            }
+        };
+
+        // ─── Send message ───
         await conn.sendMessage(
             from,
             {
