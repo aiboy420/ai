@@ -1,9 +1,11 @@
-// menu.js - Fixed Image URL
+// menu.js - Fixed Fetch Error
 import { fileURLToPath } from 'url';
 import path from 'path';
 import config from '../config.js';
 import { cmd, commands } from '../command.js';
 import { runtime } from '../lib/functions.js';
+import https from 'https';
+import http from 'http';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -90,10 +92,35 @@ const getCategorizedCommands = () => {
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CHECK IMAGE URL FUNCTION (Without fetch)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const checkImageUrl = (url) => {
+    return new Promise((resolve) => {
+        const protocol = url.startsWith('https') ? https : http;
+        const request = protocol.get(url, (response) => {
+            // Check if content-type is image
+            const contentType = response.headers['content-type'] || '';
+            if (contentType.startsWith('image/')) {
+                resolve(true);
+            } else {
+                resolve(false);
+            }
+            response.destroy();
+        });
+        request.on('error', () => resolve(false));
+        request.setTimeout(3000, () => {
+            request.destroy();
+            resolve(false);
+        });
+    });
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // MAIN COMMAND
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-// 🖼️ FIXED IMAGE URL - Only this URL will be used
+// 🖼️ FIXED IMAGE URL
 const MENU_IMAGE_URL = "https://files.catbox.moe/72h800.png";
 
 cmd({
@@ -114,6 +141,16 @@ async (conn, mek, m, { from, sender, reply, userConfig }) => {
         const VERSION = userConfig?.VERSION || config.VERSION || "1.5.0";
         const MODE = userConfig?.MODE || config.MODE || "public";
         const DESCRIPTION = userConfig?.DESCRIPTION || config.DESCRIPTION || "";
+
+        // ─── Check if image URL is valid ───
+        const isValid = await checkImageUrl(MENU_IMAGE_URL);
+        
+        let imageUrl = MENU_IMAGE_URL;
+        if (!isValid) {
+            console.log("⚠️ Menu image URL not accessible, using fallback");
+            // Fallback image - if main URL fails
+            imageUrl = "https://i.ibb.co/KhYC4FY/1221bc0bdd2354b42b293317ff2adbcf-icon.png";
+        }
 
         // ─── Get categorized commands ───
         const { categorized, totalCommands } = getCategorizedCommands();
@@ -146,11 +183,11 @@ ${menuSections}
 
 > ${DESCRIPTION}`;
 
-        // ─── 🖼️ Send menu with FIXED image URL ───
+        // ─── Send menu with image ───
         await conn.sendMessage(
             from,
             {
-                image: { url: MENU_IMAGE_URL },
+                image: { url: imageUrl },
                 caption: dec,
                 contextInfo: {
                     mentionedJid: [sender],
