@@ -1,4 +1,4 @@
-// play.js - ESM Version (Fixed)
+// play.js - ESM Version (New Caption Style)
 // NAWAZ MD - YOUTUBE MUSIC DOWNLOADER
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -115,24 +115,27 @@ ytdata = search.videos[0];
 
 }
 
-// ✅ FIXED: Added missing closing parenthesis
+// ✅ NEW CAPTION STYLE
 const caption = `
-╭───────────────🎵
-│  *YOUTUBE MUSIC*
-╰───────────────
+╭━━━━━━━━━━━━━━━╮
+┃ 🎶 𝗡𝗔𝗪𝗔𝗭 𝗠𝗗 🎶
+╰━━━━━━━━━━━━━━━╯
 
-🎶 *Title:* ${ytdata.title}
+╭─❍「 📀 SONG INFO 」
+│
+├ 🎵 Title    : ${ytdata.title}
+├ 👤 Channel  : ${ytdata.author?.name || "Unknown"}
+├ ⏱ Duration : ${ytdata.timestamp}
+├ 👁 Views    : ${ytdata.views?.toLocaleString() || "Unknown"}
+│
+╰─────────────────
 
-👤 *Channel:* ${ytdata.author?.name || "Unknown"}
+⏳ Please wait...
+🎧 Audio is being prepared.
 
-⏱ *Duration:* ${ytdata.timestamp}
-
-👁 *Views:* ${ytdata.views?.toLocaleString() || "Unknown"}
-
-────────────────────
-⬇️ Downloading Audio...
-
-🚀 Powered by Nawaz MD
+╭────────────────╮
+│𝙿𝚘𝚠𝚎𝚛𝚎𝚍 𝙱𝚢 𝙽𝚊𝚠𝚊𝚣 𝙼𝙳
+╰────────────────╯
 `;
 
 await conn.sendMessage(from,{
