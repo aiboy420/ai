@@ -443,7 +443,7 @@ cmd({
 😊 *Emojis:* ${validation.emojis.join(' ')}
 🖥️ ${selectionInfo}
 
-> *Powered By Jawad Tech*`;
+> *Powered By Nawaz  Tech*`;
 
         await reply(resultMessage);
         await conn.sendMessage(from, { react: { text: '✅', key: m.key } });
