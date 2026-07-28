@@ -1,93 +1,118 @@
+// menu.js - Optimized Version (Faster Loading)
 import { fileURLToPath } from 'url';
 import path from 'path';
 import config from '../config.js';
 import { cmd, commands } from '../command.js';
 import { runtime } from '../lib/functions.js';
-import axios from 'axios';
-import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Helper function for small caps text
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SMALL CAPS (Pre-cached for speed)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const SMALL_CAPS_MAP = {
+    'a': 'ᴀ','b':'ʙ','c':'ᴄ','d':'ᴅ','e':'ᴇ','f':'ғ','g':'ɢ','h':'ʜ','i':'ɪ',
+    'j':'ᴊ','k':'ᴋ','l':'ʟ','m':'ᴍ','n':'ɴ','o':'ᴏ','p':'ᴘ','q':'ǫ','r':'ʀ',
+    's':'s','t':'ᴛ','u':'ᴜ','v':'ᴠ','w':'ᴡ','x':'x','y':'ʏ','z':'ᴢ',
+    'A':'ᴀ','B':'ʙ','C':'ᴄ','D':'ᴅ','E':'ᴇ','F':'ғ','G':'ɢ','H':'ʜ','I':'ɪ',
+    'J':'ᴊ','K':'ᴋ','L':'ʟ','M':'ᴍ','N':'ɴ','O':'ᴏ','P':'ᴘ','Q':'ǫ','R':'ʀ',
+    'S':'s','T':'ᴛ','U':'ᴜ','V':'ᴠ','W':'ᴡ','X':'x','Y':'ʏ','Z':'ᴢ'
+};
+
 const toSmallCaps = (text) => {
     if (!text || typeof text !== 'string') return '';
-    const smallCapsMap = {
-        'a': 'ᴀ', 'b': 'ʙ', 'c': 'ᴄ', 'd': 'ᴅ', 'e': 'ᴇ', 'f': 'ғ', 'g': 'ɢ', 'h': 'ʜ', 'i': 'ɪ',
-        'j': 'ᴊ', 'k': 'ᴋ', 'l': 'ʟ', 'm': 'ᴍ', 'n': 'ɴ', 'o': 'ᴏ', 'p': 'ᴘ', 'q': 'ǫ', 'r': 'ʀ',
-        's': 's', 't': 'ᴛ', 'u': 'ᴜ', 'v': 'ᴠ', 'w': 'ᴡ', 'x': 'x', 'y': 'ʏ', 'z': 'ᴢ',
-        'A': 'ᴀ', 'B': 'ʙ', 'C': 'ᴄ', 'D': 'ᴅ', 'E': 'ᴇ', 'F': 'ғ', 'G': 'ɢ', 'H': 'ʜ', 'I': 'ɪ',
-        'J': 'ᴊ', 'K': 'ᴋ', 'L': 'ʟ', 'M': 'ᴍ', 'N': 'ɴ', 'O': 'ᴏ', 'P': 'ᴘ', 'Q': 'ǫ', 'R': 'ʀ',
-        'S': 's', 'T': 'ᴛ', 'U': 'ᴜ', 'V': 'ᴠ', 'W': 'ᴡ', 'X': 'x', 'Y': 'ʏ', 'Z': 'ᴢ'
-    };
-    return text.split('').map(char => smallCapsMap[char] || char).join('');
+    return text.split('').map(c => SMALL_CAPS_MAP[c] || c).join('');
 };
 
-// Format category with new design
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CATEGORY FORMAT (Optimized)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 const formatCategory = (category, cmds) => {
-    const validCmds = cmds.filter(cmd => cmd.pattern && cmd.pattern.trim() !== '');
+    const validCmds = cmds.filter(cmd => cmd.pattern && !cmd.dontAddCommandList);
     if (validCmds.length === 0) return '';
     
-    let title = `\n╭━━❰ ${category.toUpperCase()} ❱━━⬣\n`;
-    let body = validCmds.map(cmd => {
-        const commandName = cmd.pattern || '';
-        return `┃❖ ${toSmallCaps(commandName)}`;
-    }).join('\n');
-    let footer = `\n╰━━━━━━━━━━━━━━⬣`;
-    return `${title}${body}${footer}`;
+    let body = '';
+    for (const c of validCmds) {
+        body += `┃❖ ${toSmallCaps(c.pattern)}\n`;
+    }
+    
+    return `\n╭━━❰ ${category.toUpperCase()} ❱━━⬣\n${body}╰━━━━━━━━━━━━━━⬣`;
 };
 
-// Function to validate media URL and determine type
-const getMediaType = (url) => {
-    if (!url || typeof url !== 'string' || url.trim() === '') return null;
-    const urlLower = url.toLowerCase();
-    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
-    if (imageExtensions.some(ext => urlLower.endsWith(ext))) return 'image';
-    const videoExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.gif'];
-    if (videoExtensions.some(ext => urlLower.endsWith(ext))) return 'video';
-    return null;
-};
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CATEGORY ORDER (Pre-defined for speed)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-// Get all categories and organize them with custom order: Islamic > Download > Group > Others
+const PRIORITY_ORDER = ['islamic', 'download', 'group'];
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// GROUP COMMANDS (Optimized - Single Loop)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 const getCategorizedCommands = () => {
     const commandsArray = Array.isArray(commands) ? commands : Object.values(commands);
-    let totalCommands = commandsArray.length;
-    const categories = [...new Set(commandsArray.map(c => c.category))].filter(cat => 
-        cat && cat.trim() !== '' && cat !== 'undefined'
-    );
+    const totalCommands = commandsArray.length;
     
-    // 🎯 CUSTOM ORDER: Islamic > Download > Group > Others
-    const priorityOrder = ['islamic', 'download', 'group'];
+    // Single loop to categorize
+    const categoryMap = {};
+    const categorySet = new Set();
     
-    // Sort categories: priority first, then alphabetical
-    const sortedCategories = categories.sort((a, b) => {
-        const aIndex = priorityOrder.indexOf(a);
-        const bIndex = priorityOrder.indexOf(b);
+    for (const c of commandsArray) {
+        const cat = c.category;
+        if (!cat || cat === 'undefined' || !cat.trim()) continue;
+        if (!c.pattern || c.pattern.trim() === '') continue;
+        if (c.dontAddCommandList) continue;
         
-        // If both are in priority list, sort by priority order
-        if (aIndex !== -1 && bIndex !== -1) {
-            return aIndex - bIndex;
-        }
-        // If only a is in priority list, a comes first
-        if (aIndex !== -1) return -1;
-        // If only b is in priority list, b comes first
-        if (bIndex !== -1) return 1;
-        // Otherwise sort alphabetically
+        if (!categoryMap[cat]) categoryMap[cat] = [];
+        categoryMap[cat].push(c);
+        categorySet.add(cat);
+    }
+    
+    // Sort categories with priority order
+    const sortedCategories = Array.from(categorySet).sort((a, b) => {
+        const aIdx = PRIORITY_ORDER.indexOf(a);
+        const bIdx = PRIORITY_ORDER.indexOf(b);
+        if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+        if (aIdx !== -1) return -1;
+        if (bIdx !== -1) return 1;
         return a.localeCompare(b);
     });
     
+    // Build categorized object in order
     const categorized = {};
-    sortedCategories.forEach(cat => {
-        const categoryCommands = commandsArray.filter(c => c.category === cat);
-        const validCommands = categoryCommands.filter(cmd => cmd.pattern && cmd.pattern.trim() !== '');
-        if (validCommands.length > 0) categorized[cat] = validCommands;
-    });
+    for (const cat of sortedCategories) {
+        if (categoryMap[cat] && categoryMap[cat].length > 0) {
+            categorized[cat] = categoryMap[cat];
+        }
+    }
+    
     return { categorized, totalCommands };
 };
 
-// ===============================
-// MENU COMMAND
-// ===============================
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MEDIA TYPE CHECK (Pre-cached)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.gif'];
+
+const getMediaType = (url) => {
+    if (!url || typeof url !== 'string' || url.trim() === '') return null;
+    const urlLower = url.toLowerCase();
+    if (IMAGE_EXTENSIONS.some(ext => urlLower.endsWith(ext))) return 'image';
+    if (VIDEO_EXTENSIONS.some(ext => urlLower.endsWith(ext))) return 'video';
+    return null;
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MAIN COMMAND
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const localImagePath = path.join(__dirname, '../lib/jawadmd.jpg');
+
 cmd({
     pattern: "menu",
     alias: ["m", "fullmenu"],
@@ -96,37 +121,29 @@ cmd({
     category: "main",
     react: "🧾",
     filename: __filename
-},
-async (conn, mek, m, { from, sender, reply, userConfig }) => {
-    try {
-        // Using optional chaining like your play command
-        const BOT_NAME = userConfig?.BOT_NAME || config.BOT_NAME || "NawazTechX";
-        const OWNER_NAME = userConfig?.OWNER_NAME || config.OWNER_NAME || "Nawaz";
-        const PREFIX = userConfig?.PREFIX || config.PREFIX || ".";
-        const VERSION = userConfig?.VERSION || config.VERSION || "1.5.0";
-        const MODE = userConfig?.MODE || config.MODE || "public";
-        const BOT_IMAGE = userConfig?.BOT_IMAGE || config.BOT_IMAGE || "";
-        const DESCRIPTION = userConfig?.DESCRIPTION || config.DESCRIPTION || "";
+}, async (conn, mek, m, { from, sender, reply, userConfig }) => {
+    
+    // ─── Get config values (fast) ───
+    const BOT_NAME = userConfig?.BOT_NAME || config.BOT_NAME || "NawazTechX";
+    const OWNER_NAME = userConfig?.OWNER_NAME || config.OWNER_NAME || "Nawaz";
+    const PREFIX = userConfig?.PREFIX || config.PREFIX || ".";
+    const VERSION = userConfig?.VERSION || config.VERSION || "1.5.0";
+    const MODE = userConfig?.MODE || config.MODE || "public";
+    const BOT_IMAGE = userConfig?.BOT_IMAGE || config.BOT_IMAGE || "";
+    const DESCRIPTION = userConfig?.DESCRIPTION || config.DESCRIPTION || "";
 
-        // Show typing presence before processing
-        await conn.sendPresenceUpdate('composing', from);
-        
-        // Get categorized commands with custom order
-        const { categorized, totalCommands } = getCategorizedCommands();
+    // ─── Get categorized commands (optimized) ───
+    const { categorized, totalCommands } = getCategorizedCommands();
 
-        // Build menu sections - in custom order
-        let menuSections = '';
-        for (const [category, cmds] of Object.entries(categorized)) {
-            if (cmds && cmds.length > 0) {
-                const section = formatCategory(category, cmds);
-                if (section !== '') {
-                    menuSections += section;
-                }
-            }
-        }
+    // ─── Build menu sections (fast) ───
+    let menuSections = '';
+    for (const [category, cmds] of Object.entries(categorized)) {
+        menuSections += formatCategory(category, cmds);
+    }
 
-        // 🔥 NEW STYLE - Main menu text with Total Commands
-        let dec = `╭━━❰ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳 ❱━━⬣
+    // ─── Build menu text ───
+    const dec = `╭━━❰𝙽𝙰𝚆𝙰𝚉 𝙼𝙳❱━━⬣
+
 ┃❖ Owner   : ${OWNER_NAME}
 ┃❖ Mode    : ${MODE}
 ┃❖ Prefix  : ${PREFIX}
@@ -145,48 +162,30 @@ ${menuSections}
 
 > ${DESCRIPTION}`;
 
-        // Determine which media to use
-        let mediaData;
-        const localImagePath = path.join(__dirname, '../lib/jawadmd.jpg');
-        
-        // First check if config has valid media URL
-        const mediaType = getMediaType(BOT_IMAGE);
-        
-        if (mediaType === 'image' || mediaType === 'video') {
-            try {
-                // Check if server is accessible (timeout after 3 seconds)
-                await axios.head(BOT_IMAGE, { timeout: 3000 });
-                // Server is up, use the URL media
-                mediaData = { 
-                    [mediaType]: { url: BOT_IMAGE } 
-                };
-            } catch (serverError) {
-                // Server is down or inaccessible, use local image
-                console.log('Media server down, using local image:', serverError.message);
-                mediaData = { image: { url: localImagePath } };
+    // ─── Determine media (fast - no axios check) ───
+    let mediaData;
+    const mediaType = getMediaType(BOT_IMAGE);
+    
+    if (mediaType === 'image' || mediaType === 'video') {
+        mediaData = { [mediaType]: { url: BOT_IMAGE } };
+    } else {
+        mediaData = { image: { url: localImagePath } };
+    }
+
+    // ─── Send message ───
+    await conn.sendMessage(from, {
+        ...mediaData,
+        caption: dec,
+        contextInfo: {
+            mentionedJid: [sender],
+            forwardingScore: 999,
+            isForwarded: true,
+            forwardedNewsletterMessageInfo: {
+                newsletterJid: '120363410129201712@newsletter',
+                newsletterName: BOT_NAME,
+                serverMessageId: 143
             }
-        } else {
-            // Invalid media URL format, use local image
-            mediaData = { image: { url: localImagePath } };
         }
+    }, { quoted: m });
 
-        await conn.sendMessage(from, { 
-            ...mediaData,
-            caption: dec, 
-            contextInfo: { 
-                mentionedJid: [sender], 
-                forwardingScore: 999, 
-                isForwarded: true, 
-                forwardedNewsletterMessageInfo: { 
-                    newsletterJid: '120363410129201712@newsletter', 
-                    newsletterName: BOT_NAME, 
-                    serverMessageId: 143 
-                } 
-            } 
-        }, { quoted: m });
-
-    } catch (e) { 
-        console.log(e); 
-        reply(`Error: ${e.message}`); 
-    } 
 });
