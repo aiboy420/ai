@@ -149,7 +149,7 @@ async (conn, mek, m, { from, sender, reply, userConfig }) => {
         if (!isValid) {
             console.log("⚠️ Menu image URL not accessible, using fallback");
             // Fallback image - if main URL fails
-            imageUrl = "https://i.ibb.co/KhYC4FY/1221bc0bdd2354b42b293317ff2adbcf-icon.png";
+            imageUrl = "https://i.ibb.co/HfQ5BpTg/jawadmd.png";
         }
 
         // ─── Get categorized commands ───
