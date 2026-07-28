@@ -1,209 +1,69 @@
-import { fileURLToPath } from "url";
-import { dirname } from "path";
 import { cmd } from "../command.js";
 import yts from "yt-search";
 import axios from "axios";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Cache
-const cache = new Map();
-
-/**
- * Normalize YouTube URL
- */
-function normalizeYouTubeUrl(url) {
-    const match = url.match(
-        /(?:youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/.*[?&]v=)([a-zA-Z0-9_-]{11})/
-    );
-
-    return match
-        ? `https://youtube.com/watch?v=${match[1]}`
-        : null;
-}
-
-/**
- * Fetch Audio
- */
 async function fetchAudio(url) {
-
     const apis = [
-
-        {
-            url: `https://api.nexray.web.id/downloader/v1/ytmp3?url=${encodeURIComponent(url)}`,
-            parse: data => data.result?.url,
-            title: data => data.result?.title || "Unknown Song"
-        },
-
-        {
-            url: `https://api.deline.web.id/downloader/ytmp3?url=${encodeURIComponent(url)}`,
-            parse: data => data.result?.dlink,
-            title: data => data.result?.title || "Unknown Song"
-        },
-
-        {
-            url: `https://api.nexray.web.id/downloader/ytmp3?url=${encodeURIComponent(url)}`,
-            parse: data => data.result?.url,
-            title: data => data.result?.title || "Unknown Song"
-        }
-
+        `https://api.nexray.web.id/downloader/v1/ytmp3?url=${encodeURIComponent(url)}`,
+        `https://api.deline.web.id/downloader/ytmp3?url=${encodeURIComponent(url)}`,
+        `https://api.nexray.web.id/downloader/ytmp3?url=${encodeURIComponent(url)}`
     ];
 
     for (const api of apis) {
-
         try {
+            const { data } = await axios.get(api, { timeout: 15000 });
 
-            const { data } = await axios.get(api.url, {
-                timeout: 15000
-            });
-
-            const audio = api.parse(data);
+            const audio =
+                data.result?.url ||
+                data.result?.dlink;
 
             if (audio) {
                 return {
-                    title: api.title(data),
+                    title: data.result?.title || "Unknown Song",
                     audio
                 };
             }
-
-        } catch (err) {
-
-            console.log("API Failed:", api.url);
-
-        }
-
+        } catch {}
     }
 
     return null;
 }
-cmd(
-{
+cmd({
     pattern: "play",
-    alias: ["song", "music", "audio", "mp3"],
-    react: "🎵",
-    desc: "Download YouTube Audio",
-    category: "download",
-    filename: __filename,
-},
-async (conn, mek, m, { from, q, reply, prefix, command }) => {
+    react: "🎵"
+}, async (conn, mek, m, { from, q, reply }) => {
 
-try {
+    if (!q) return reply("Example: .play Faded");
 
-if (!q) {
-return reply(`🎵 *Usage:* ${prefix + command} Faded`);
-}
+    try {
 
-await conn.sendMessage(from,{
-react:{
-text:"🔍",
-key:mek.key
-}
+        const search = await yts(q);
+
+        if (!search.videos.length)
+            return reply("Song not found!");
+
+        const video = search.videos[0];
+
+        await reply("⏳ Waiting for download...");
+
+        const data = await fetchAudio(video.url);
+
+        if (!data)
+            return reply("Download failed!");
+
+        const audio = await axios.get(data.audio, {
+            responseType: "arraybuffer"
+        });
+
+        await conn.sendMessage(from, {
+            audio: Buffer.from(audio.data),
+            mimetype: "audio/mpeg",
+            fileName: `${data.title}.mp3`
+        }, { quoted: mek });
+
+    } catch (err) {
+        console.log(err);
+        reply(err.message);
+    }
+
 });
-
-const url = normalizeYouTubeUrl(q);
-
-let ytdata;
-
-if (url) {
-
-const search = await yts(q);
-ytdata = search.videos?.[0];
-
-} else {
-
-const search = await yts(q);
-
-if (!search.videos.length) {
-return reply("❌ Song not found!");
-}
-
-ytdata = search.videos[0];
-
-}
-
-const caption = `
-╭━━━━━━━━━━━━━━━╮
-┃ 🎶 𝗡𝗔𝗪𝗔𝗭 𝗠𝗗 🎶
-╰━━━━━━━━━━━━━━━╯
-
-╭─❍「 📀 SONG INFO 」
-│
-├ 🎵 Title    : ${ytdata.title}
-├ 👤 Channel  : ${ytdata.author?.name || "Unknown"}
-├ ⏱ Duration : ${ytdata.timestamp}
-├ 👁 Views    : ${ytdata.views?.toLocaleString() || "Unknown"}
-│
-╰─────────────────
-
-⏳ Please wait...
-🎧 Audio is being prepared.
-
-╭────────────────╮
-│ Powered By Nawaz MD
-╰────────────────╯
-`;
-
-await conn.sendMessage(from,{
-image:{url:ytdata.thumbnail || ytdata.image},
-caption
-},{quoted:mek});
-
-await conn.sendMessage(from,{
-react:{
-text:"⏳",
-key:mek.key
-}
-});
-
-const dlData = await fetchAudio(ytdata.url);
-
-if (!dlData || !dlData.audio) {
-    return reply("❌ Audio link not found!");
-}
-
-try {
-
-    const audio = await axios.get(dlData.audio, {
-        responseType: "arraybuffer",
-        timeout: 60000
-    });
-
-    await conn.sendMessage(from, {
-        audio: Buffer.from(audio.data),
-        mimetype: "audio/mpeg",
-        fileName: `${dlData.title}.mp3`,
-        ptt: false
-    }, { quoted: mek });
-
-    await conn.sendMessage(from, {
-        react: {
-            text: "✅",
-            key: mek.key
-        }
-    });
-
-} catch (err) {
-
-    console.log("AUDIO SEND ERROR:", err);
-
-    return reply("❌ Audio send failed!");
-
-}
-
-} catch (err) {
-
-    console.log("PLAY ERROR:", err);
-
-    await conn.sendMessage(from, {
-        react: {
-            text: "❌",
-            key: mek.key
-        }
-    });
-
-    reply("⚠️ Something went wrong!");
-
-}
-
-});                                                                 
