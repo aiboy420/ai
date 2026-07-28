@@ -1,4 +1,4 @@
-// play.js - ESM Version (Multiple APIs)
+// play.js - ESM Version (Without JawadTech API)
 // NAWAZ MD - YOUTUBE MUSIC DOWNLOADER
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -23,48 +23,46 @@ function normalizeYouTubeUrl(url) {
 }
 
 /**
- * Get MP3 Download Link - Multiple APIs
+ * Get MP3 Download Link - Fast APIs (Without JawadTech)
  */
 async function fetchAudio(url, retries = 2) {
-    // List of APIs to try
+    // Fast APIs - Without JawadTech
     const apis = [
-        // API 1: JawadTech
+        // API 1: Fastest - NexRay v1
         {
-            url: `https://jawad-tech.vercel.app/download/ytdl?url=${encodeURIComponent(url)}`,
-            parse: (data) => data.result?.mp3
+            url: `https://api.nexray.web.id/downloader/v1/ytmp3?url=${encodeURIComponent(url)}`,
+            parse: (data) => data.result?.url,
+            title: (data) => data.result?.title || "Unknown Song"
         },
         // API 2: Deline
         {
             url: `https://api.deline.web.id/downloader/ytmp3?url=${encodeURIComponent(url)}`,
-            parse: (data) => data.result?.dlink
+            parse: (data) => data.result?.dlink,
+            title: (data) => data.result?.title || "Unknown Song"
         },
-        // API 3: NexRay
-        {
-            url: `https://api.nexray.web.id/downloader/v1/ytmp3?url=${encodeURIComponent(url)}`,
-            parse: (data) => data.result?.url
-        },
-        // API 4: NexRay Regular
+        // API 3: NexRay Regular
         {
             url: `https://api.nexray.web.id/downloader/ytmp3?url=${encodeURIComponent(url)}`,
-            parse: (data) => data.result?.url
+            parse: (data) => data.result?.url,
+            title: (data) => data.result?.title || "Unknown Song"
         }
     ];
 
     for (const api of apis) {
         try {
             const { data } = await axios.get(api.url, {
-                timeout: 20000,
+                timeout: 15000,
             });
 
             const audioUrl = api.parse(data);
             if (audioUrl) {
                 return {
-                    title: data.result?.title || data.metadata?.title || "Unknown Song",
+                    title: api.title(data),
                     audio: audioUrl,
                 };
             }
         } catch (e) {
-            console.log(`API failed: ${api.url}`, e.message);
+            console.log(`API failed: ${api.url}`);
             continue;
         }
     }
@@ -121,15 +119,10 @@ const caption = `
 ╭───────────────🎵
 │  *YOUTUBE MUSIC*
 ╰───────────────
-
 🎶 *Title:* ${ytdata.title}
-
 👤 *Channel:* ${ytdata.author?.name || "Unknown"}
-
 ⏱ *Duration:* ${ytdata.timestamp}
-
-👁 *Views:* ${ytdata.views.toLocaleString()}
-
+👁 *Views:* ${ytdata.views.toLocaleString()
 ────────────────────
 ⬇️ Downloading Audio...
 
