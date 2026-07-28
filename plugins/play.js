@@ -33,7 +33,7 @@ async function fetchAudio(url) {
 
     return null;
 }
-ocmd({
+cmd({
     pattern: "play"
 }, async (conn, mek, m, { from, q, reply }) => {
 
