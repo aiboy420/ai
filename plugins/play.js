@@ -88,7 +88,7 @@ return reply(`🎵 *Usage:* ${prefix + command} Faded`);
 
 await conn.sendMessage(from, {
 react: {
-text: "🔍",
+text: "🎵",
 key: mek.key
 }
 });
@@ -110,22 +110,18 @@ ytdata = search.videos[0];
 
 // ✅ NEW CAPTION STYLE WITH NAWAZ TECH X
 const caption = `
-╔═══════════════════╗
-║  🎵 𝗡𝗔𝗪𝗔𝗭 𝗧𝗘𝗖𝗛 𝗫   ║
-╚═══════════════════╝
-
+╔═══════════════╗
+║🎵 𝗡𝗔𝗪𝗔𝗭 𝗧𝗘𝗖𝗛 𝗫 ║
+╚═══════════════╝
 ╭─❍「 📀 SONG INFO 」
 │
 ├ 🎵 Title    : ${ytdata.title}
 ├ 👤 Channel  : ${ytdata.author?.name || "Unknown"}
 ├ ⏱ Duration : ${ytdata.timestamp}
 ├ 👁 Views    : ${ytdata.views?.toLocaleString() || "Unknown"}
-│
 ╰─────────────────
-
 ⏳ Please wait...
 🎧 Audio is being prepared.
-
 ╔══════════════════╗
 ║ Powered By Nawaz MD ║
 ╚══════════════════╝
@@ -163,7 +159,7 @@ ptt:false
 
 await conn.sendMessage(from,{
 react:{
-text:"✅",
+text:"👁️‍🗨️",
 key:mek.key
 }
 });
