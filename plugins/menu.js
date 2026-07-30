@@ -169,7 +169,7 @@ async (conn, mek, m, { from, sender, reply, userConfig }) => {
         }
 
         // ─── Build menu text ───
-        const dec = `💎〔 *${BOT_NAME}* 〕💎
+        const dec = `    〔 *${BOT_NAME}* 〕
 ┃★╭──────────────
 ┃★│ Owner : ${OWNER_NAME}
 ┃★│ Mode : ${MODE}
