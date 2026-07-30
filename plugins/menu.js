@@ -35,13 +35,18 @@ const toSmallCaps = (text) => {
 const formatCategory = (category, cmds) => {
     const validCmds = cmds.filter(cmd => cmd.pattern && !cmd.dontAddCommandList);
     if (validCmds.length === 0) return '';
-    
-    let body = '';
+
+    let body = `╭━━〔 *${category.toUpperCase()}* 〕━━┈⊷\n`;
+    body += `┃❖╭─────────────·๏\n`;
+
     for (const c of validCmds) {
-        body += `┃❖ ${toSmallCaps(c.pattern)}\n`;
+        body += `┃❖┃ ${toSmallCaps(c.pattern)}\n`;
     }
-    
-    return `\n╭━━❰ ${category.toUpperCase()} ❱━━⬣\n${body}╰━━━━━━━━━━━━━━⬣`;
+
+    body += `┃❖└───────────┈⊷\n`;
+    body += `╰──────────────┈⊷\n`;
+
+    return body;
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -164,22 +169,26 @@ async (conn, mek, m, { from, sender, reply, userConfig }) => {
         }
 
         // ─── Build menu text ───
-        const dec = `╭━━❰ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳 ❱━━⬣
-┃❖ Owner   : ${OWNER_NAME}
-┃❖ Mode    : ${MODE}
-┃❖ Prefix  : ${PREFIX}
-┃❖ Version : ${VERSION}
-┃❖ Runtime : ${runtime(process.uptime())}
-┃❖ Total Commands : ${totalCommands}
-╰━━━━━━━━━━━━━━⬣
+        const dec = `💎〔 *${BOT_NAME}* 〕💎
+┃★╭──────────────
+┃★│ Owner : ${OWNER_NAME}
+┃★│ Mode : ${MODE}
+┃★│ Prefix : ${PREFIX}
+┃★│ Version : ${VERSION}
+┃★│ Runtime : ${runtime(process.uptime())}
+┃★│ Total Commands : ${totalCommands}
+┃★╰──────────────
+╰━━━━━━━━━━━━━━━┈⊷
 
 ${menuSections}
 
-╭━━❰ 🛠 SUPPORT ❱━━⬣
-┃❖ ${PREFIX}owner
-┃❖ ${PREFIX}ping
-┃❖ ${PREFIX}menu
-╰━━━━━━━━━━━━━━⬣
+╭━━〔 *Support* 〕━━┈⊷
+┃❖╭─────────────·๏
+┃❖┃ owner
+┃❖┃ ping
+┃❖┃ menu
+┃❖└───────────┈⊷
+╰──────────────┈⊷
 
 > ${DESCRIPTION}`;
 
