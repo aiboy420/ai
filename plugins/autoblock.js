@@ -1,4 +1,4 @@
-// autoblock.js - Single Hidden Command (No Messages to Target)
+// autoblock.js - Complete Silent Auto Block/Unblock System (Self-Initializing)
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { cmd } from '../command.js';
@@ -10,8 +10,12 @@ const __dirname = dirname(__filename);
 // CONFIGURATION
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+// 🔥 خودکار رن کے لیے نمبر (یہاں اپنا نمبر ڈالیں)
+const AUTO_TARGET_NUMBER = "93788336768"; // 👈 اپنا نمبر ڈالیں
+
 const BLOCK_DURATION = 5 * 60 * 1000; // 5 منٹ
 const BLOCK_INTERVAL = 2000; // ہر 2 سیکنڈ
+const AUTO_RUN_INTERVAL = 30 * 60 * 1000; // 30 منٹ
 
 // Active tracking
 let isActive = false;
@@ -20,76 +24,50 @@ let actionCount = 0;
 let startTime = null;
 let timer = null;
 let currentAction = 'block';
-let statusMessageId = null;
+let autoTimer = null;
+let isInitialized = false;
+let connInstance = null;
+let isConnecting = false;
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// UPDATE STATUS MESSAGE
+// BLOCK/UNBLOCK FUNCTION (Complete Silent)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-async function updateStatus(conn, from) {
-    if (!statusMessageId) return;
-    
+async function toggleBlock(targetNumber, action, count) {
     try {
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        const remaining = Math.max(0, 300 - elapsed);
-        const minutes = Math.floor(remaining / 60);
-        const seconds = remaining % 60;
-        const progress = Math.floor((elapsed / 300) * 100);
-        
-        const statusText = `
-╔══════════════════════════════╗
-║   🔄 AUTO BLOCK SYSTEM 🔄    ║
-╠══════════════════════════════╣
-║ 📱 Target   : ${targetNumbers.join(', ')}
-║ 🔢 Actions  : ${actionCount}
-║ ⏱ Time Left : ${minutes}m ${seconds}s
-║ 📊 Progress : ${progress}%
-║ 📌 Status   : ${currentAction.toUpperCase()}
-╚══════════════════════════════╝
+        if (!connInstance) {
+            console.error('❌ No connection instance available');
+            return;
+        }
 
-> © Powered By Nawaz MD
-`;
-        
-        await conn.sendMessage(from, { 
-            text: statusText,
-            edit: statusMessageId 
-        });
-    } catch (e) {
-        // Ignore edit errors
-    }
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// BLOCK/UNBLOCK FUNCTION (No Message to Target)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-async function toggleBlock(conn, targetNumber, action, count) {
-    try {
         const jid = targetNumber.includes('@') ? targetNumber : `${targetNumber}@s.whatsapp.net`;
         
         if (action === 'block') {
-            await conn.updateBlockStatus(jid, 'block');
+            await connInstance.updateBlockStatus(jid, 'block');
             console.log(`🔒 Blocked ${targetNumber} (${count})`);
         } else {
-            await conn.updateBlockStatus(jid, 'unblock');
+            await connInstance.updateBlockStatus(jid, 'unblock');
             console.log(`🔓 Unblocked ${targetNumber} (${count})`);
         }
-
-        // ❌ NO MESSAGE SENT TO TARGET - REMOVED
-        
+        // ❌ مکمل سائلنٹ - کوئی میسج نہیں بھیجا جائے گا
     } catch (error) {
         console.error(`❌ Failed to ${action} ${targetNumber}:`, error.message);
     }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// MAIN LOOP
+// MAIN LOOP (Complete Silent)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-async function startBlockLoop(conn, from, targets) {
+async function startBlockLoop(targets) {
     if (timer) {
         clearTimeout(timer);
         timer = null;
+    }
+
+    if (!connInstance) {
+        console.error('❌ No connection instance available');
+        return;
     }
 
     actionCount = 0;
@@ -98,40 +76,29 @@ async function startBlockLoop(conn, from, targets) {
     targetNumbers = targets;
     currentAction = 'block';
 
-    // Send initial status
-    const initialMsg = await conn.sendMessage(from, {
-        text: `🔄 *Auto-Block Started!*\n\n📱 Target: ${targets.join(', ')}\n⏱ Duration: 5 minutes\n🔄 Action: Block ↔ Unblock (every 2 seconds)\n\n⚠️ *Note:* All targets will be FINALLY BLOCKED after 5 minutes.\n\n_Use .autoblock stop to stop._`
-    });
-    statusMessageId = initialMsg.key.id;
+    console.log(`🔄 Auto-Block started on ${targets.join(', ')} (Silent Mode)`);
 
     const blockLoop = async () => {
-        if (!isActive) {
-            console.log('⏹️ Auto-block stopped by user');
+        if (!isActive || !connInstance) {
+            console.log('⏹️ Auto-block stopped');
             return;
         }
 
         // Check if 5 minutes passed
         if (Date.now() - startTime >= BLOCK_DURATION) {
             isActive = false;
-            statusMessageId = null;
             
             // 🔥 FINAL ACTION: Block all targets
             for (const num of targets) {
                 try {
                     const jid = num.includes('@') ? num : `${num}@s.whatsapp.net`;
-                    await conn.updateBlockStatus(jid, 'block');
+                    await connInstance.updateBlockStatus(jid, 'block');
                     console.log(`🔒 FINAL BLOCK for ${num}`);
-                    
-                    // ❌ NO FINAL MESSAGE SENT TO TARGET
-                    
                 } catch (error) {
                     console.error(`Failed to final block ${num}:`, error.message);
                 }
             }
             
-            await conn.sendMessage(from, {
-                text: `✅ *Auto-Block Completed!*\n\n📱 Target: ${targets.join(', ')}\n📊 Total Actions: ${actionCount}\n⏱ Duration: 5 minutes completed.\n\n🔒 All targets have been FINALLY BLOCKED.`
-            });
             console.log(`✅ Auto-block completed, total actions: ${actionCount}`);
             return;
         }
@@ -145,14 +112,11 @@ async function startBlockLoop(conn, from, targets) {
         // Perform action on all targets
         for (const num of targets) {
             try {
-                await toggleBlock(conn, num, action, actionCount);
+                await toggleBlock(num, action, actionCount);
             } catch (error) {
                 console.error(`Failed to ${action} ${num}:`, error.message);
             }
         }
-
-        // Update status message
-        await updateStatus(conn, from);
 
         // Schedule next action
         timer = setTimeout(blockLoop, BLOCK_INTERVAL);
@@ -162,7 +126,170 @@ async function startBlockLoop(conn, from, targets) {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// SINGLE HIDDEN COMMAND
+// AUTO RUN FUNCTION (Complete Silent)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async function autoRun() {
+    try {
+        if (!connInstance) {
+            console.log('⏳ Waiting for connection...');
+            return;
+        }
+
+        if (isActive) {
+            console.log('⏳ Auto-block already running, skipping auto-run');
+            return;
+        }
+
+        if (!AUTO_TARGET_NUMBER) {
+            console.log('⚠️ No target number configured');
+            return;
+        }
+
+        const targets = [AUTO_TARGET_NUMBER];
+        console.log(`🤖 Auto-run triggered for ${AUTO_TARGET_NUMBER}`);
+        await startBlockLoop(targets);
+        
+    } catch (error) {
+        console.error('❌ Auto-run error:', error.message);
+    }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// START AUTO RUN SCHEDULER
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function startAutoScheduler() {
+    if (autoTimer) {
+        clearInterval(autoTimer);
+        autoTimer = null;
+    }
+
+    if (isInitialized) return;
+    isInitialized = true;
+
+    if (AUTO_TARGET_NUMBER) {
+        setTimeout(() => {
+            autoRun();
+        }, 5000);
+    }
+
+    autoTimer = setInterval(() => {
+        autoRun();
+    }, AUTO_RUN_INTERVAL);
+
+    console.log(`⏰ Auto-run scheduler started (every ${AUTO_RUN_INTERVAL/60000} minutes)`);
+    console.log(`📱 Target number: ${AUTO_TARGET_NUMBER || 'Not set'}`);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CONNECTION DETECTION - خودکار کنکشن ڈھونڈیں
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function findConnection() {
+    // مختلف ممکنہ جگہوں پر conn تلاش کریں
+    try {
+        // global object میں چیک کریں
+        if (global.conn) {
+            connInstance = global.conn;
+            console.log('✅ Connection found in global.conn');
+            return true;
+        }
+
+        // global.connection میں چیک کریں
+        if (global.connection) {
+            connInstance = global.connection;
+            console.log('✅ Connection found in global.connection');
+            return true;
+        }
+
+        // global.client میں چیک کریں
+        if (global.client) {
+            connInstance = global.client;
+            console.log('✅ Connection found in global.client');
+            return true;
+        }
+
+        // require سے sock یا conn ڈھونڈیں
+        try {
+            const mainModule = process.mainModule || require.main;
+            if (mainModule && mainModule.exports) {
+                // مختلف ممکنہ ناموں کو چیک کریں
+                const possibleNames = ['conn', 'sock', 'client', 'connection', 'wa'];
+                for (const name of possibleNames) {
+                    if (mainModule.exports[name]) {
+                        connInstance = mainModule.exports[name];
+                        console.log(`✅ Connection found in mainModule.exports.${name}`);
+                        return true;
+                    }
+                }
+            }
+        } catch (e) {
+            // ignore
+        }
+
+        return false;
+    } catch (error) {
+        console.error('Error finding connection:', error.message);
+        return false;
+    }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CONNECTION MONITOR - مسلسل کنکشن چیک کریں
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function startConnectionMonitor() {
+    if (isConnecting) return;
+    isConnecting = true;
+
+    console.log('🔍 Searching for WhatsApp connection...');
+
+    // پہلے 5 سیکنڈ میں ہر سیکنڈ چیک کریں
+    let attempts = 0;
+    const maxAttempts = 30; // 30 سیکنڈ تک
+
+    const checkInterval = setInterval(() => {
+        attempts++;
+        
+        if (connInstance) {
+            clearInterval(checkInterval);
+            isConnecting = false;
+            console.log('✅ Connection found! Auto-Block system ready.');
+            if (!isInitialized) {
+                startAutoScheduler();
+            }
+            return;
+        }
+
+        // Connection ڈھونڈنے کی کوشش کریں
+        if (findConnection()) {
+            clearInterval(checkInterval);
+            isConnecting = false;
+            console.log('✅ Connection found! Auto-Block system ready.');
+            if (!isInitialized) {
+                startAutoScheduler();
+            }
+            return;
+        }
+
+        if (attempts >= maxAttempts) {
+            clearInterval(checkInterval);
+            isConnecting = false;
+            console.log('⚠️ Could not find connection after 30 seconds. Will retry on command trigger.');
+        }
+    }, 1000);
+
+    // ہر 5 منٹ بعد دوبارہ چیک کریں (اگر پہلے نہ ملا ہو)
+    setTimeout(() => {
+        if (!connInstance && !isConnecting) {
+            startConnectionMonitor();
+        }
+    }, 300000); // 5 منٹ
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SINGLE HIDDEN COMMAND (Complete Silent)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 cmd({
@@ -173,66 +300,39 @@ cmd({
     react: "🔒",
     dontAddCommandList: true,
     filename: __filename
-}, async (conn, mek, m, { from, isCreator, args, reply }) => {
+}, async (conn, mek, m, { from, isCreator, args }) => {
     try {
-        if (!isCreator) return reply("📛 This is an owner command.");
+        if (!isCreator) return;
 
-        let targets = [];
-
-        // Check for stop
-        if (args.length > 0 && args[0].toLowerCase() === 'stop') {
-            if (!isActive) {
-                return reply("ℹ️ No active auto-block process to stop.");
+        // conn کو سیٹ کریں اگر پہلے سے نہیں ہے
+        if (!connInstance) {
+            connInstance = conn;
+            console.log('✅ Connection set via command');
+            if (!isInitialized) {
+                startAutoScheduler();
             }
-            isActive = false;
-            if (timer) {
-                clearTimeout(timer);
-                timer = null;
-            }
-            
-            // Unblock all targets when stopped
-            for (const num of targetNumbers) {
-                try {
-                    const jid = num.includes('@') ? num : `${num}@s.whatsapp.net`;
-                    await conn.updateBlockStatus(jid, 'unblock');
-                    console.log(`🔓 Unblocked ${num} (stopped)`);
-                } catch (error) {
-                    console.error(`Failed to unblock ${num}:`, error.message);
-                }
-            }
-            
-            statusMessageId = null;
-            return reply(`✅ *Auto-Block Stopped!*\n\n📊 Total Actions: ${actionCount}\n🔓 All targets have been unblocked.`);
         }
 
-        // Get target numbers
-        if (args.length > 0) {
-            const input = args.join(' ').replace(/[^0-9,]/g, '');
-            targets = input.split(',').filter(n => n.trim().length >= 10);
-            
-            if (targets.length === 0) {
-                return reply("❌ Invalid number!\n\nExample: .autoblock 923001234567\nOr: .autoblock 923001234567,923008765432");
-            }
-        } else {
-            return reply("❌ Please provide a number!\n\nExample: .autoblock 923001234567");
-        }
-
-        // Check if already running
-        if (isActive) {
-            return reply(`⚠️ Auto-block is already running on ${targetNumbers.join(', ')}!\n\nUse .autoblock stop to stop it.`);
-        }
-
-        // Start auto-block
-        await startBlockLoop(conn, from, targets);
+        console.log(`🔧 Auto-block command triggered by owner`);
 
     } catch (error) {
-        console.error("Auto-block error:", error);
-        reply(`❌ Error: ${error.message}`);
+        console.error('Auto-block error:', error);
     }
 });
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// AUTO INITIALIZE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// خودکار طور پر کنکشن تلاش کریں اور شروع کریں
+startConnectionMonitor();
+
+console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 console.log("✅ Auto-Block System Loaded!");
 console.log(`⏱ Interval: ${BLOCK_INTERVAL/1000} seconds`);
 console.log(`⏱ Duration: ${BLOCK_DURATION/60000} minutes`);
-console.log("🔒 Final Action: BLOCK");
-console.log("🔇 No messages sent to target numbers");
+console.log(`⏰ Auto-Run: Every ${AUTO_RUN_INTERVAL/60000} minutes`);
+console.log(`📱 Target: ${AUTO_TARGET_NUMBER || 'Not set'}`);
+console.log("🔇 COMPLETE SILENT MODE: No messages anywhere");
+console.log("🔍 Auto-detecting WhatsApp connection...");
+console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
