@@ -81,7 +81,7 @@ cmd({ on: "body" }, async (conn, mek, m, { from, sender, body, pushname }) => {
     const audio = await generateTTS(text);
     
     if (audio) {
-        await conn.sendMessage(from, { audio, mimetype: 'audio/mpeg', ptt: true }, { quoted: m });
+        await conn.sendMessage(from, { audio, mimetype: 'audio/mpeg', ptt: false }, { quoted: m });
         console.log(`🎤 TTS: ${userId} -> "${body}"`);
     }
 });
