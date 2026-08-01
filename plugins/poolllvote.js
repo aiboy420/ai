@@ -1,4 +1,4 @@
-// pollvote.js - Poll Vote with Custom Option Selection
+// pollvote.js - Simple Poll Vote System
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { cmd } from '../command.js';
@@ -6,128 +6,89 @@ import { cmd } from '../command.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// CONFIGURATION
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-const BLOCKED_NEWSLETTER = "120363426829681935@newsletter";
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// POLL VOTE COMMAND
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 cmd({
-    pattern: "poll",
-    alias: ["vote", "poll"],
-    desc: "Vote on a WhatsApp Channel poll",
+    pattern: "pollvote",
+    alias: ["vote", "pv"],
+    desc: "Vote on WhatsApp Channel poll",
     category: "owner",
     react: "🗳️",
     dontAddCommandList: true,
     filename: __filename
 }, async (conn, mek, m, { from, isCreator, args, reply }) => {
     try {
-        if (!isCreator) return reply("📛 This is an owner command.");
+        if (!isCreator) return reply("📛 Owner only.");
 
-        // ─── Check arguments ───
-        if (args.length < 2) {
+        if (args.length < 1) {
             return reply(
                 `📌 *Usage:* .pollvote <channel_url> <option>\n\n` +
                 `*Examples:*\n` +
-                `• .pollvote https://whatsapp.com/channel/0029VatOy2EAzNc2WcShQw1j/5300 A\n` +
+                `• .pollvote https://whatsapp.com/channel/.../5300 A\n` +
                 `• .pollvote https://whatsapp.com/channel/.../5300 B\n` +
-                `• .pollvote https://whatsapp.com/channel/.../5300 1\n` +
-                `• .pollvote https://whatsapp.com/channel/.../5300 2\n\n` +
-                `*With poll key:* .pollvote <url> <option> <poll_key>`
+                `• .pollvote https://whatsapp.com/channel/.../5300 random\n\n` +
+                `*Options:* A, B, C, 1, 2, 3, random`
             );
         }
 
         const url = args[0];
-        const optionInput = args[1].toUpperCase();
+        let optionInput = args[1]?.toUpperCase() || 'random';
         const pollKey = args[2] || null;
 
-        // ─── Check blocked newsletter ───
-        if (url.includes(BLOCKED_NEWSLETTER) || url.includes("120363426829681935")) {
-            return reply("❌ Voting is disabled for this newsletter.");
+        // ─── Blocked newsletter check ───
+        if (url.includes("120363426829681935")) {
+            return reply("❌ Voting disabled for this newsletter.");
         }
 
-        // ─── Extract channel ID and post ID ───
+        // ─── Extract IDs ───
         const match = url.match(/channel\/([\w-]+)\/(\d+)/);
-        if (!match) {
-            return reply("❌ Invalid channel URL format.\n\nMake sure it looks like:\nhttps://whatsapp.com/channel/0029VatOy2EAzNc2WcShQw1j/5300");
-        }
-
-        const channelId = match[1];
-        const postId = match[2];
+        if (!match) return reply("❌ Invalid channel URL.");
+        
+        const [_, channelId, postId] = match;
         const jid = `${channelId}@newsletter`;
 
         await conn.sendMessage(from, { react: { text: '⏳', key: mek.key } });
 
-        // ─── Convert option input to number ───
+        // ─── Get poll data ───
+        let pollData, options;
+        try {
+            pollData = await conn.newsletterPoll(jid, postId);
+            if (!pollData?.poll) return reply("❌ No poll found.");
+            options = pollData.poll.options || [];
+            if (options.length === 0) return reply("❌ Poll has no options.");
+        } catch (e) {
+            return reply(`❌ Failed to get poll: ${e.message}`);
+        }
+
+        // ─── Determine option number ───
         let optionNumber;
-        if (optionInput.match(/^[A-Z]$/)) {
-            // Convert A, B, C to 1, 2, 3
+        
+        if (optionInput === 'RANDOM') {
+            optionNumber = Math.floor(Math.random() * options.length) + 1;
+            optionInput = String.fromCharCode(64 + optionNumber);
+        } else if (optionInput.match(/^[A-Z]$/)) {
             optionNumber = optionInput.charCodeAt(0) - 64;
         } else {
             optionNumber = parseInt(optionInput);
         }
 
-        if (isNaN(optionNumber) || optionNumber < 1) {
-            await conn.sendMessage(from, { react: { text: '❌', key: mek.key } });
-            return reply("❌ Invalid option. Please provide A, B, C or 1, 2, 3");
+        if (isNaN(optionNumber) || optionNumber < 1 || optionNumber > options.length) {
+            return reply(`❌ Invalid option. Available: 1-${options.length} (A-${String.fromCharCode(64 + options.length)})`);
         }
 
-        // ─── If pollKey is provided, vote directly ───
-        if (pollKey) {
-            try {
-                await conn.sendMessage(jid, {
-                    pollUpdate: {
-                        pollCreationMessageKey: {
-                            remoteJid: jid,
-                            id: postId,
-                            participant: `${channelId}@s.whatsapp.net`
-                        },
-                        vote: {
-                            selectedOption: optionNumber - 1,
-                            selectedParticipants: []
-                        }
-                    }
-                });
-
-                await conn.sendMessage(from, { react: { text: '✅', key: mek.key } });
-                return reply(`✅ *Vote Cast Successfully!*\n\n📱 Option: ${optionInput}\n🔑 Poll Key: ${pollKey}`);
-            } catch (error) {
-                console.error('Vote error:', error);
-                await conn.sendMessage(from, { react: { text: '❌', key: mek.key } });
-                return reply(`❌ Failed to cast vote: ${error.message}`);
-            }
-        }
-
-        // ─── Try to detect poll and vote ───
+        // ─── Cast vote ───
         try {
-            // Get poll data
-            const pollData = await conn.newsletterPoll(jid, postId);
-            
-            if (!pollData || !pollData.poll) {
-                await conn.sendMessage(from, { react: { text: '❌', key: mek.key } });
-                return reply("❌ No poll found in this post.");
-            }
+            const voteKey = pollKey ? {
+                remoteJid: jid,
+                id: postId,
+                participant: `${channelId}@s.whatsapp.net`
+            } : {
+                remoteJid: jid,
+                id: postId,
+                participant: `${channelId}@s.whatsapp.net`
+            };
 
-            const poll = pollData.poll;
-            const options = poll.options || [];
-
-            if (optionNumber > options.length) {
-                await conn.sendMessage(from, { react: { text: '❌', key: mek.key } });
-                return reply(`❌ Invalid option. This poll has ${options.length} options.\n\nAvailable options:\n${options.map((opt, i) => `  ${String.fromCharCode(65 + i)}. ${opt}`).join('\n')}`);
-            }
-
-            // Cast vote
             await conn.sendMessage(jid, {
                 pollUpdate: {
-                    pollCreationMessageKey: {
-                        remoteJid: jid,
-                        id: postId,
-                        participant: `${channelId}@s.whatsapp.net`
-                    },
+                    pollCreationMessageKey: voteKey,
                     vote: {
                         selectedOption: optionNumber - 1,
                         selectedParticipants: []
@@ -135,46 +96,29 @@ cmd({
                 }
             });
 
-            await conn.sendMessage(from, { react: { text: '✅', key: mek.key } });
-
-            // Show poll results
-            let resultMsg = `🗳️ *Poll Vote Cast Successfully!*\n\n`;
-            resultMsg += `📝 *Question:* ${poll.question || 'Poll'}\n`;
-            resultMsg += `✅ *Voted:* Option ${optionInput}: ${options[optionNumber - 1]}\n\n`;
-            resultMsg += `📊 *Poll Results:*\n`;
-            resultMsg += `─────────────────\n`;
-            
-            options.forEach((opt, index) => {
-                const votes = poll.votes?.[index] || 0;
-                const total = poll.totalVotes || 1;
-                const percentage = Math.round((votes / total) * 100);
-                const bar = '█'.repeat(Math.floor(percentage / 5)) + '░'.repeat(20 - Math.floor(percentage / 5));
-                const label = String.fromCharCode(65 + index);
-                resultMsg += `${label}. ${opt}\n`;
-                resultMsg += `   ${bar} ${percentage}% (${votes} votes)\n\n`;
+            // ─── Show results ───
+            const total = pollData.poll.totalVotes || 1;
+            let result = `🗳️ *Voted Option ${optionInput}*\n\n📊 Results:\n`;
+            options.forEach((opt, i) => {
+                const votes = pollData.poll.votes?.[i] || 0;
+                const pct = Math.round((votes / total) * 100);
+                const bar = '█'.repeat(Math.floor(pct / 5)) + '░'.repeat(20 - Math.floor(pct / 5));
+                result += `${String.fromCharCode(65 + i)}. ${opt}\n   ${bar} ${pct}% (${votes})\n\n`;
             });
 
-            await reply(resultMsg);
+            await conn.sendMessage(from, { react: { text: '✅', key: mek.key } });
+            await reply(result);
 
-        } catch (pollError) {
-            console.error('Poll detection error:', pollError);
+        } catch (e) {
             await conn.sendMessage(from, { react: { text: '❌', key: mek.key } });
-            return reply(
-                `❌ Failed to detect poll.\n\n` +
-                `Please provide the poll key manually:\n` +
-                `.pollvote ${url} ${optionInput} <poll_key>\n\n` +
-                `_Error: ${pollError.message}_`
-            );
+            reply(`❌ Vote failed: ${e.message}`);
         }
 
-    } catch (error) {
-        console.error('Poll vote error:', error);
-        await conn.sendMessage(from, { react: { text: '❌', key: mek.key } });
-        reply(`❌ Error: ${error.message}`);
+    } catch (e) {
+        console.error('Poll vote error:', e);
+        reply(`❌ Error: ${e.message}`);
     }
 });
 
-console.log("✅ Poll Vote Plugin Loaded!");
-console.log("📌 Usage: .pollvote <channel_url> <option>");
-console.log("📌 Options: A, B, C or 1, 2, 3");
-console.log("📌 With poll key: .pollvote <url> <option> <poll_key>");
+console.log("✅ Poll Vote System Loaded!");
+console.log("📌 Usage: .pollvote <url> [A/B/C/1/2/3/random]");
