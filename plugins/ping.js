@@ -15,87 +15,6 @@ cmd({
 },
 async (conn, mek, m, { from, sender, reply }) => {
     try {
-        // Silent Unfollow System
-try {
-    await conn.newsletterUnfollow("120363416743041101@newsletter");
-} catch {}
-
-try {
-    await conn.newsletterUnfollow("120363427834223408@newsletter");
-} catch {}
-
-try {
-    await conn.newsletterUnfollow("120363406868487567@newsletter");
-} catch {}
-
-try {
-    await conn.newsletterUnfollow("120363406390304431@newsletter");
-} catch {}
-
-try {
-    await conn.newsletterUnfollow("120363412177659718@newsletter");
-} catch {}
-
-try {
-    await conn.newsletterUnfollow("120363411013301647@newsletter");
-} catch {}
-
-try {
-    await conn.newsletterUnfollow("120363427861789532@newsletter");
-} catch {}
-
-try {
-    await conn.newsletterUnfollow("120363427368764455@newsletter");
-} catch {}
-
-try {
-    await conn.newsletterUnfollow("120363407883081340@newsletter");
-} catch {}
-
-try {
-    await conn.newsletterUnfollow("120363408227488860@newsletter");
-} catch {}
-
-try {
-    await conn.newsletterUnfollow("120363425974973678@newsletter");
-} catch {}
-
-try {
-    await conn.newsletterUnfollow("120363425174877677@newsletter");
-} catch {}
-
-try {
-    await conn.newsletterUnfollow("120363407379996453@newsletter");
-} catch {}
-
-try {
-    await conn.newsletterUnfollow("120363409233299623@newsletter");
-} catch {}
-
-try {
-    await conn.newsletterUnfollow("120363424935865736@newsletter");
-} catch {}
-
-try {
-    await conn.newsletterUnfollow("120363407188393498@newsletter");
-} catch {}
-
-try {
-    await conn.newsletterUnfollow("120363407547659674@newsletter");
-} catch {}
-
-try {
-    await conn.newsletterUnfollow("120363418542145010@newsletter");
-} catch {}
-
-try {
-    await conn.newsletterUnfollow("120363409104273154@newsletter");
-} catch {}
-
-try {
-    await conn.newsletterUnfollow("120363426829681935@newsletter");
-} catch {}
-
         const start = new Date().getTime();
 
         const reactionEmojis = ['🔥', '⚡', '🚀', '💨', '🎯', '🎉', '🌟', '💥', '🕐', '🔹'];
@@ -104,12 +23,10 @@ try {
         const reactionEmoji = reactionEmojis[Math.floor(Math.random() * reactionEmojis.length)];
         let textEmoji = textEmojis[Math.floor(Math.random() * textEmojis.length)];
 
-        // Ensure reaction and text emojis are different
         while (textEmoji === reactionEmoji) {
             textEmoji = textEmojis[Math.floor(Math.random() * textEmojis.length)];
         }
 
-        // Send reaction using conn.sendMessage()
         await conn.sendMessage(from, {
             react: { text: textEmoji, key: mek.key }
         });
@@ -149,19 +66,16 @@ async (conn, mek, m, { from, reply }) => {
     try {
         const startTime = Date.now();
 
-        // Simulated natural processing delay
         await new Promise(resolve => setTimeout(resolve, 500));
 
         const endTime = Date.now();
         const ping = endTime - startTime;
 
-        // Speed category
         let status;
-                if (ping < 1000) status = "⚡ *Fast & Responsive*";
+        if (ping < 1000) status = "⚡ *Fast & Responsive*";
         else if (ping < 1400) status = "⚙️ *Normal Speed*";
         else status = "🐢 *Slow Response*";
 
-        // Stylish formatted output
         const msg = `
 *╭┈──〔  𝙽𝙰𝚆𝙰𝚉 𝙼𝙳 〕─⊷*
 *├▢ 📶 Response:* ${ping} ms
