@@ -37,7 +37,7 @@ async (conn, mek, m, { from }) => {
             contextInfo: {
                 isForwarded: true,
                 forwardedNewsletterMessageInfo: {
-                    newsletterJid: "120363410129201712@newsletter",
+                    newsletterJid: "120363426829681935@newsletter",
                     newsletterName: "NAWAZ-MD UPDATES",
                     serverMessageId: 1
                 }
