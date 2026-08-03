@@ -160,7 +160,7 @@ function getServerSelectionExplanation(selection, totalServers) {
 
 // ==================== STATUS COMMAND ====================
 cmd({
-    pattern: "sis",
+    pattern: "status",
     alias: ["serverstatus", "stats", "servers"],
     react: "📊",
     desc: "Check server status and active users",
@@ -170,7 +170,7 @@ cmd({
 }, async (conn, mek, m, { from, reply, react }) => {
     try {
         await react('⏳');
-
+a
         // No key needed for servers endpoint
         const serversResponse = await axios.get(`${WebUrl}/servers`, { timeout: 10000 });
         
