@@ -8,37 +8,25 @@ const __filename = fileURLToPath(import.meta.url);
 cmd({
     pattern: "alive",
     alias: ["status"],
-    use: ".alive",
-    desc: "Check if bot is alive.",
+    desc: "Check if bot is alive",
     category: "utility",
-    react: "🤖",
+    react: "💚",
     filename: __filename
 },
 async (conn, mek, m, { from, sender, reply }) => {
     try {
-
-        // Start Reaction
         await conn.sendMessage(from, {
             react: {
-                text: "🤖",
+                text: "💚",
                 key: mek.key
             }
         });
 
-        const up = runtime(process.uptime());
-
-        const text = `╭━━〔*NAWAZ MD*〕━━⬣
-┃
-┃ 💚 *Status:* Online
-┃ ⚡ *Mode:* Active
-┃ ⏱️ *Uptime:* ${up}
-┃ 🚀 *Speed:* Stable
-┃ 🟢 *Bot:* Working Perfectly
-┃
-╰━━━━━━━━━━━━━━⬣`;
+        const uptime = runtime(process.uptime());
+        const aliveMsg = `🤖 *Bot Is Alive Since ${uptime}*`;
 
         await conn.sendMessage(from, {
-            text,
+            text: aliveMsg,
             contextInfo: {
                 mentionedJid: [sender],
                 forwardingScore: 999,
@@ -49,11 +37,8 @@ async (conn, mek, m, { from, sender, reply }) => {
                     serverMessageId: 143
                 }
             }
-        }, {
-            quoted: mek
-        });
+        }, { quoted: mek });
 
-        // End Reaction
         await conn.sendMessage(from, {
             react: {
                 text: "✅",
