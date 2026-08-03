@@ -160,7 +160,7 @@ function getServerSelectionExplanation(selection, totalServers) {
 
 // ==================== STATUS COMMAND ====================
 cmd({
-    pattern: "sis",
+    pattern: "status",
     alias: ["serverstatus", "stats", "servers"],
     react: "📊",
     desc: "Check server status and active users",
