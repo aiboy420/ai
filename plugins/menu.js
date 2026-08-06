@@ -126,7 +126,7 @@ const checkImageUrl = (url) => {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 // 🖼️ FIXED IMAGE URL
-const MENU_IMAGE_URL = "https://files.catbox.moe/72h800.png";
+const MENU_IMAGE_URL = "https://i.ibb.co/TMVPtYf5/jawadmd.jpg";
 
 cmd({
     pattern: "menu",
@@ -154,7 +154,7 @@ async (conn, mek, m, { from, sender, reply, userConfig }) => {
         if (!isValid) {
             console.log("⚠️ Menu image URL not accessible, using fallback");
             // Fallback image - if main URL fails
-            imageUrl = "https://i.ibb.co/HfQ5BpTg/jawadmd.png";
+            imageUrl = "https://i.ibb.co/TMVPtYf5/jawadmd.jpg";
         }
 
         // ─── Get categorized commands ───
