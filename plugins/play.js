@@ -127,8 +127,10 @@ ${prefix + command} Song Name`
 
     const nowPlaying =
 `🎧 Now Playing
+
 🎵 ${video.title}
 👤 ${video.author?.name || "Unknown"}
+
 ⏳ Please wait...`;
 
 
