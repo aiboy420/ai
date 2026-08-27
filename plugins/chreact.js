@@ -168,6 +168,7 @@ cmd({
     try {
         await react('⏳');
 
+        // No key needed for servers endpoint
         const serversResponse = await axios.get(`${WebUrl}/servers`, { timeout: 10000 });
         
         if (!serversResponse.data || !serversResponse.data.servers) {
@@ -188,6 +189,13 @@ cmd({
             try {
                 const statusResponse = await axios.get(`${server.url}/active`, { timeout: 8000 });
                 
+                // Current update time
+                const updatedTime = new Date().toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+
                 if (statusResponse.data && !statusResponse.data.error) {
                     const count = statusResponse.data.count || 0;
                     const limit = statusResponse.data.limit || 50;
@@ -198,7 +206,8 @@ cmd({
                         name: server.name,
                         count: count,
                         limit: limit,
-                        status: `${statusEmoji} ONLINE`
+                        status: `${statusEmoji} ONLINE`,
+                        updated: updatedTime
                     });
                     
                     totalActive += count;
@@ -210,17 +219,25 @@ cmd({
                         name: server.name,
                         count: 0,
                         limit: 50,
-                        status: '🟡 NO DATA'
+                        status: '🟡 NO DATA',
+                        updated: updatedTime
                     });
                     offlineServers++;
                 }
             } catch (error) {
+                const updatedTime = new Date().toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+
                 serverStatus.push({
                     server: server.id,
                     name: server.name,
                     count: 0,
                     limit: 50,
-                    status: '🔴 OFFLINE'
+                    status: '🔴 OFFLINE',
+                    updated: updatedTime
                 });
                 offlineServers++;
             }
@@ -228,29 +245,28 @@ cmd({
 
         await react('✅');
 
-        // ONLY STATUS MESSAGE STYLE CHANGED
-        let statusMessage = `╭━━━〔 📊 𝐒𝐄𝐑𝐕𝐄𝐑 𝐒𝐓𝐀𝐓𝐔𝐒 〕━━━┈⊷\n`;
-        statusMessage += `┃\n`;
-        statusMessage += `┃ 🌐 𝐎𝐕𝐄𝐑𝐕𝐈𝐄𝐖\n`;
-        statusMessage += `┃ ├─ 🖥️ Total   : ${servers.length}\n`;
-        statusMessage += `┃ ├─ 🟢 Online  : ${onlineServers}\n`;
-        statusMessage += `┃ ├─ 🔴 Offline : ${offlineServers}\n`;
-        statusMessage += `┃ └─ ⚡ Active  : ${totalActive}/${totalLimit}\n`;
-        statusMessage += `┃\n`;
-        statusMessage += `╰━━━━━━━━━━━━━━━━━━━━┈⊷\n\n`;
+        // ==================== COMPACT STATUS STYLE ====================
+
+        let statusMessage = `╭──〔 📊 SERVER STATUS 〕\n`;
+        statusMessage += `│ 🌐 Total : ${servers.length}\n`;
+        statusMessage += `│ 🟢 Online : ${onlineServers}\n`;
+        statusMessage += `│ 🔴 Offline : ${offlineServers}\n`;
+        statusMessage += `│ ⚡ Active : ${totalActive}/${totalLimit}\n`;
+        statusMessage += `╰──────────────\n\n`;
 
         serverStatus.forEach((s, index) => {
             let statusIcon = s.status.split(' ')[0];
             let statusText = s.status.split(' ').slice(1).join(' ');
 
-            statusMessage += `╭━━〔 🖥️ 𝐒𝐄𝐑𝐕𝐄𝐑 ${String(index + 1).padStart(2, '0')} 〕━━┈⊷\n`;
-            statusMessage += `┃ 📌 Name   : ${s.name}\n`;
-            statusMessage += `┃ 👥 Active : ${s.count}/${s.limit}\n`;
-            statusMessage += `┃ ${statusIcon} Status : ${statusText}\n`;
-            statusMessage += `╰━━━━━━━━━━━━━━━━━━━━┈⊷\n\n`;
+            statusMessage += `╭─〔 🖥️ SERVER ${String(index + 1).padStart(2, '0')} 〕\n`;
+            statusMessage += `│ 📌 ${s.name}\n`;
+            statusMessage += `│ 👥 ${s.count}/${s.limit}\n`;
+            statusMessage += `│ ${statusIcon} ${statusText}\n`;
+            statusMessage += `│ ⏱️ Updated : ${s.updated}\n`;
+            statusMessage += `╰──────────────\n`;
         });
 
-        statusMessage += `> 𝙿𝙾𝚆𝙴𝚁𝙴𝙳 𝙱𝚈 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`;
+        statusMessage += `\n> 𝙿𝙾𝚆𝙴𝚁𝙴𝙳 𝙱𝚈 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`;
 
         await reply(statusMessage);
 
