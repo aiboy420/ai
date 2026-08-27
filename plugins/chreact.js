@@ -168,102 +168,113 @@ cmd({
     try {
         await react('⏳');
 
-        // No key needed for servers endpoint
         const serversResponse = await axios.get(`${WebUrl}/servers`, { timeout: 10000 });
-        
+
         if (!serversResponse.data || !serversResponse.data.servers) {
             await react('❌');
             return reply("❌ Failed to fetch server list.");
         }
 
         const servers = serversResponse.data.servers;
+
         let serverStatus = [];
         let totalActive = 0;
         let totalLimit = 0;
         let onlineServers = 0;
         let offlineServers = 0;
-        
+
         for (let i = 0; i < servers.length; i++) {
             const server = servers[i];
-            
+
             try {
-                const statusResponse = await axios.get(`${server.url}/active`, { timeout: 8000 });
-                
-                // Current update time
-                const updatedTime = new Date().toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
-                });
+                const statusResponse = await axios.get(
+                    `${server.url}/active`,
+                    { timeout: 8000 }
+                );
 
                 if (statusResponse.data && !statusResponse.data.error) {
                     const count = statusResponse.data.count || 0;
                     const limit = statusResponse.data.limit || 50;
+
+                    // Server uptime from API, if available
+                    const uptimeSeconds =
+                        statusResponse.data.uptime ||
+                        statusResponse.data.runtime ||
+                        0;
+
                     const statusEmoji = getCountStatus(count);
-                    
+
                     serverStatus.push({
-                        server: server.id,
                         name: server.name,
-                        count: count,
-                        limit: limit,
-                        status: `${statusEmoji} ONLINE`,
-                        updated: updatedTime
+                        count,
+                        limit,
+                        uptime: uptimeSeconds,
+                        status: `${statusEmoji} ONLINE`
                     });
-                    
+
                     totalActive += count;
                     totalLimit += limit;
                     onlineServers++;
+
                 } else {
                     serverStatus.push({
-                        server: server.id,
                         name: server.name,
                         count: 0,
-                        limit: 50,
-                        status: '🟡 NO DATA',
-                        updated: updatedTime
+                        limit: 0,
+                        uptime: 0,
+                        status: '🔴 OFFLINE'
                     });
+
                     offlineServers++;
                 }
-            } catch (error) {
-                const updatedTime = new Date().toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
-                });
 
+            } catch (error) {
                 serverStatus.push({
-                    server: server.id,
                     name: server.name,
                     count: 0,
-                    limit: 50,
-                    status: '🔴 OFFLINE',
-                    updated: updatedTime
+                    limit: 0,
+                    uptime: 0,
+                    status: '🔴 OFFLINE'
                 });
+
                 offlineServers++;
             }
         }
 
         await react('✅');
 
-        // ==================== COMPACT STATUS STYLE ====================
-
-        let statusMessage = `╭──〔 📊 SERVER STATUS 〕\n`;
-        statusMessage += `│ 🌐 Total : ${servers.length}\n`;
+        let statusMessage = `╭─〔 📊 SERVER STATUS 〕\n`;
         statusMessage += `│ 🟢 Online : ${onlineServers}\n`;
         statusMessage += `│ 🔴 Offline : ${offlineServers}\n`;
         statusMessage += `│ ⚡ Active : ${totalActive}/${totalLimit}\n`;
-        statusMessage += `╰──────────────\n\n`;
+        statusMessage += `╰────────────\n\n`;
 
         serverStatus.forEach((s, index) => {
-            let statusIcon = s.status.split(' ')[0];
-            let statusText = s.status.split(' ').slice(1).join(' ');
 
-            statusMessage += `╭─〔 🖥️ SERVER ${String(index + 1).padStart(2, '0')} 〕\n`;
-            statusMessage += `│ 📌 ${s.name}\n`;
-            statusMessage += `│ 👥 ${s.count}/${s.limit}\n`;
-            statusMessage += `│ ${statusIcon} ${statusText}\n`;
-            statusMessage += `│ ⏱️ Updated : ${s.updated}\n`;
-            statusMessage += `╰──────────────\n`;
+            let uptimeText = '0s';
+
+            if (s.uptime > 0) {
+                uptimeText = runtime(
+                    Number(s.uptime)
+                );
+            }
+
+            if (s.status.includes('OFFLINE')) {
+
+                statusMessage += `╭─〔 🖥️ SERVER ${String(index + 1).padStart(2, '0')} 〕\n`;
+                statusMessage += `│ 📌 ${s.name}\n`;
+                statusMessage += `│ 🔴 OFFLINE • 0/0\n`;
+                statusMessage += `│ ⏱️ Uptime : ${uptimeText}\n`;
+                statusMessage += `╰────────────\n`;
+
+            } else {
+
+                statusMessage += `╭─〔 🖥️ SERVER ${String(index + 1).padStart(2, '0')} 〕\n`;
+                statusMessage += `│ 📌 ${s.name}\n`;
+                statusMessage += `│ 🟢 ONLINE • ${s.count}/${s.limit}\n`;
+                statusMessage += `│ ⏱️ Uptime : ${uptimeText}\n`;
+                statusMessage += `╰────────────\n`;
+            }
         });
 
         statusMessage += `\n> 𝙿𝙾𝚆𝙴𝚁𝙴𝙳 𝙱𝚈 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`;
