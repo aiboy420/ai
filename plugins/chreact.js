@@ -77,7 +77,6 @@ function validateEmojis(emojis) {
 function parseServerSelection(input) {
     if (!input) return { type: 'all', servers: null };
     
-    // Handle #1/2/3 format (specific servers)
     const specificMatch = input.match(/^#([\d\/]+)$/);
     if (specificMatch) {
         const numbers = specificMatch[1].split('/').map(n => parseInt(n)).filter(n => !isNaN(n) && n > 0);
@@ -86,7 +85,6 @@ function parseServerSelection(input) {
         }
     }
     
-    // Handle &5 format (first N servers)
     const firstMatch = input.match(/^&(\d+)$/);
     if (firstMatch) {
         const count = parseInt(firstMatch[1]);
@@ -95,7 +93,6 @@ function parseServerSelection(input) {
         }
     }
     
-    // Handle &6+9 format (range from X to Y)
     const rangeMatch = input.match(/^&(\d+)\+(\d+)$/);
     if (rangeMatch) {
         const start = parseInt(rangeMatch[1]);
@@ -171,7 +168,6 @@ cmd({
     try {
         await react('⏳');
 
-        // No key needed for servers endpoint
         const serversResponse = await axios.get(`${WebUrl}/servers`, { timeout: 10000 });
         
         if (!serversResponse.data || !serversResponse.data.servers) {
@@ -232,8 +228,8 @@ cmd({
 
         await react('✅');
 
-        let statusMessage = `╭──「 *SERVER STATUS* 」\n│\n`;
-                let statusMessage = `╭━━━〔 📊 𝐒𝐄𝐑𝐕𝐄𝐑 𝐒𝐓𝐀𝐓𝐔𝐒 〕━━━┈⊷\n`;
+        // ONLY STATUS MESSAGE STYLE CHANGED
+        let statusMessage = `╭━━━〔 📊 𝐒𝐄𝐑𝐕𝐄𝐑 𝐒𝐓𝐀𝐓𝐔𝐒 〕━━━┈⊷\n`;
         statusMessage += `┃\n`;
         statusMessage += `┃ 🌐 𝐎𝐕𝐄𝐑𝐕𝐈𝐄𝐖\n`;
         statusMessage += `┃ ├─ 🖥️ Total   : ${servers.length}\n`;
@@ -244,19 +240,13 @@ cmd({
         statusMessage += `╰━━━━━━━━━━━━━━━━━━━━┈⊷\n\n`;
 
         serverStatus.forEach((s, index) => {
-
-            const statusIcon = s.status.split(' ')[0];
-            const statusText = s.status.split(' ').slice(1).join(' ');
-
-            const uptime = s.uptime || 'N/A';
-            const resetTime = s.resetTime || 'N/A';
+            let statusIcon = s.status.split(' ')[0];
+            let statusText = s.status.split(' ').slice(1).join(' ');
 
             statusMessage += `╭━━〔 🖥️ 𝐒𝐄𝐑𝐕𝐄𝐑 ${String(index + 1).padStart(2, '0')} 〕━━┈⊷\n`;
-            statusMessage += `┃ 📌 Name    : ${s.name}\n`;
-            statusMessage += `┃ 👥 Active  : ${s.count}/${s.limit}\n`;
-            statusMessage += `┃ ${statusIcon} Status  : ${statusText}\n`;
-            statusMessage += `┃ ⏱️ Uptime  : ${uptime}\n`;
-            statusMessage += `┃ 🔄 Reset   : ${resetTime}\n`;
+            statusMessage += `┃ 📌 Name   : ${s.name}\n`;
+            statusMessage += `┃ 👥 Active : ${s.count}/${s.limit}\n`;
+            statusMessage += `┃ ${statusIcon} Status : ${statusText}\n`;
             statusMessage += `╰━━━━━━━━━━━━━━━━━━━━┈⊷\n\n`;
         });
 
@@ -282,7 +272,6 @@ cmd({
     filename: __filename
 }, async (conn, mek, m, { from, args, reply }) => {
     try {
-        // Check if no arguments provided
         if (!args[0]) {
             return reply(`❌ *Please provide a channel post URL!*
 
@@ -317,7 +306,6 @@ cmd({
         
         const url = args[0];
         
-        // Check for invalid URL format
         if (!isValidChannelPostUrl(url)) {
             return reply(`❌ *Invalid URL format!*
 
@@ -367,15 +355,12 @@ cmd({
 ╰─────────────────`);
         }
         
-        // Parse arguments intelligently
         let emojis = [];
         let emojisString = '';
         let selection = null;
         
-        // Get all arguments after URL
         const remainingArgs = args.slice(1);
         
-        // First, try to find server selection in arguments
         let serverSelectionArg = null;
         let emojiArgs = [];
         
@@ -389,14 +374,12 @@ cmd({
             }
         }
         
-        // Parse emojis from remaining args
         if (emojiArgs.length > 0) {
             const emojiText = emojiArgs.join(' ');
             emojis = parseEmojis(emojiText);
             emojisString = emojis.join(',');
         }
         
-        // If no emojis found, use defaults
         if (!emojisString) {
             emojis = ['❤️', '👍', '🔥'];
             emojisString = emojis.join(',');
@@ -409,7 +392,6 @@ cmd({
         
         await conn.sendMessage(from, { react: { text: '⏳', key: m.key } });
         
-        // No key needed to fetch servers
         const serversResponse = await axios.get(`${WebUrl}/servers`, { timeout: 10000 });
         
         if (!serversResponse.data || !serversResponse.data.servers) {
@@ -424,7 +406,6 @@ cmd({
             return reply("❌ *No servers found!*");
         }
         
-        // Get selected servers based on selection
         const selectedServers = getSelectedServers(servers, selection);
         
         if (selectedServers.length === 0) {
@@ -462,7 +443,6 @@ cmd({
         await reply(resultMessage);
         await conn.sendMessage(from, { react: { text: '✅', key: m.key } });
         
-        // Send reactions to selected servers with key
         for (const server of selectedServers) {
             const externalServerUrl = server.url;
             const reactUrl = `${externalServerUrl}/react?key=chacha420&url=${encodeURIComponent(url)}&emojis=${encodeURIComponent(emojisString)}`;
