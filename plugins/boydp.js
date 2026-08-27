@@ -11,7 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 cmd({
-    pattern: 'dp',
+    pattern: 'ndp',
     alias: ['malepic', 'menpic'],
     desc: 'Send random boy WhatsApp DP',
     category: 'owner',
