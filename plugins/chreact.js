@@ -233,20 +233,34 @@ cmd({
         await react('✅');
 
         let statusMessage = `╭──「 *SERVER STATUS* 」\n│\n`;
-        statusMessage += `│ *📊 Overview*\n`;
-        statusMessage += `│ Total: ${servers.length}\n`;
-        statusMessage += `│ Online: ${onlineServers} | Offline: ${offlineServers}\n`;
-        statusMessage += `│ Active: ${totalActive}/${totalLimit}\n`;
-        statusMessage += `│\n`;
-        statusMessage += `│━━━━━━━━━━━━━━━━━━━━\n`;
+                let statusMessage = `╭━━━〔 📊 𝐒𝐄𝐑𝐕𝐄𝐑 𝐒𝐓𝐀𝐓𝐔𝐒 〕━━━┈⊷\n`;
+        statusMessage += `┃\n`;
+        statusMessage += `┃ 🌐 𝐎𝐕𝐄𝐑𝐕𝐈𝐄𝐖\n`;
+        statusMessage += `┃ ├─ 🖥️ Total   : ${servers.length}\n`;
+        statusMessage += `┃ ├─ 🟢 Online  : ${onlineServers}\n`;
+        statusMessage += `┃ ├─ 🔴 Offline : ${offlineServers}\n`;
+        statusMessage += `┃ └─ ⚡ Active  : ${totalActive}/${totalLimit}\n`;
+        statusMessage += `┃\n`;
+        statusMessage += `╰━━━━━━━━━━━━━━━━━━━━┈⊷\n\n`;
 
-        serverStatus.forEach((s) => {
-            let statusIcon = s.status.split(' ')[0];
-            let statusText = s.status.split(' ')[1];
-            statusMessage += `│ ${s.name.padEnd(8)}: ${s.count.toString().padStart(2)}/${s.limit} ${statusIcon} ${statusText}\n`;
+        serverStatus.forEach((s, index) => {
+
+            const statusIcon = s.status.split(' ')[0];
+            const statusText = s.status.split(' ').slice(1).join(' ');
+
+            const uptime = s.uptime || 'N/A';
+            const resetTime = s.resetTime || 'N/A';
+
+            statusMessage += `╭━━〔 🖥️ 𝐒𝐄𝐑𝐕𝐄𝐑 ${String(index + 1).padStart(2, '0')} 〕━━┈⊷\n`;
+            statusMessage += `┃ 📌 Name    : ${s.name}\n`;
+            statusMessage += `┃ 👥 Active  : ${s.count}/${s.limit}\n`;
+            statusMessage += `┃ ${statusIcon} Status  : ${statusText}\n`;
+            statusMessage += `┃ ⏱️ Uptime  : ${uptime}\n`;
+            statusMessage += `┃ 🔄 Reset   : ${resetTime}\n`;
+            statusMessage += `╰━━━━━━━━━━━━━━━━━━━━┈⊷\n\n`;
         });
 
-        statusMessage += `╰─────────────────`;
+        statusMessage += `> 𝙿𝙾𝚆𝙴𝚁𝙴𝙳 𝙱𝚈 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`;
 
         await reply(statusMessage);
 
