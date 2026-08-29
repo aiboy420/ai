@@ -212,16 +212,7 @@ commands.forEach(data => {
 
             await conn.sendMessage(from, {
                 text: data.msg.replace(/@user/g, `@${target.split("@")[0]}`),
-                mentions: [target],
-                contextInfo: {
-                    isForwarded: true,
-                    forwardingScore: 999,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: "120363412400560245@newsletter",
-                        newsletterName: "NAWAZ-MD",
-                        serverMessageId: Date.now()
-                    }
-                }
+                mentions: [target]
             }, { quoted: mek });
 
         }
