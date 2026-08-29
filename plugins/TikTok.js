@@ -20,9 +20,8 @@ cmd({
 
         await conn.sendMessage(from, { react: { text: '⏳', key: m.key } });
 
-        let videoUrl, title, author, username;
+        let videoUrl;
 
-        // Try First API: https://jawad-tech.vercel.app/download/tiktok?url=
         try {
             const api1 = `https://jawad-tech.vercel.app/download/tiktok?url=${encodeURIComponent(q)}`;
             const res1 = await axios.get(api1);
@@ -30,14 +29,10 @@ cmd({
 
             if (data1?.status && data1?.result) {
                 videoUrl = data1.result;
-                title = data1.metadata?.title || "Unknown Title";
-                author = data1.metadata?.author || "Unknown Author";
-                username = data1.metadata?.username || "unknown";
             } else {
                 throw new Error("First API failed");
             }
         } catch (api1Error) {
-            // Try Second API: https://jawad-tech.vercel.app/download/ttdl?url=
             try {
                 const api2 = `https://jawad-tech.vercel.app/download/ttdl?url=${encodeURIComponent(q)}`;
                 const res2 = await axios.get(api2);
@@ -45,9 +40,6 @@ cmd({
 
                 if (data2?.status && data2?.result) {
                     videoUrl = data2.result;
-                    title = data2.metadata?.title || "Unknown Title";
-                    author = data2.metadata?.author?.nickname || data2.metadata?.author || "Unknown Author";
-                    username = data2.metadata?.author?.username?.replace('@', '') || "unknown";
                 } else {
                     throw new Error("Second API also failed");
                 }
@@ -58,11 +50,14 @@ cmd({
 
         if (!videoUrl) return await reply("❌ Download failed! No video URL found.");
 
-        // 🎥 Send TikTok video with info in caption
         await conn.sendMessage(from, {
             video: { url: videoUrl },
             mimetype: 'video/mp4',
-            caption: `🎵 ${title}\n👤 *Author:* ${author}\n⚡ *Username:* @${username}\n\n> *ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳*`
+            caption: `📶 *TikTok Downloader*
+
+- ❤‍🩹 *Quality*: HD
+
+> ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
         }, { quoted: mek });
 
         await conn.sendMessage(from, { react: { text: '✅', key: m.key } });
@@ -87,7 +82,6 @@ cmd({
 
         await conn.sendMessage(from, { react: { text: '⏳', key: m.key } });
 
-        // Fetch TikTok data
         const api = `https://jawad-tech.vercel.app/download/tiktok?url=${encodeURIComponent(q)}`;
         const res = await axios.get(api);
         const json = res.data;
@@ -95,13 +89,14 @@ cmd({
         if (!json?.status || !json?.result)
             return await reply("❌ Download failed! Try again later.");
 
-        const meta = json.metadata;
-
-        // 🎥 Send TikTok video with info in caption
         await conn.sendMessage(from, {
             video: { url: json.result },
             mimetype: 'video/mp4',
-            caption: `🎵 *${meta.title}*\n👤 *Author:* ${meta.author}\n📱 *Username:* @${meta.username}\n🌍 *Region:* ${meta.region}\n\n✨ *ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳*`
+            caption: `📶 *TikTok Downloader*
+
+- ❤‍🩹 *Quality*: HD
+
+> ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
         }, { quoted: mek });
 
         await conn.sendMessage(from, { react: { text: '✅', key: m.key } });
@@ -126,7 +121,6 @@ cmd({
 
         await conn.sendMessage(from, { react: { text: '⏳', key: m.key } });
 
-        // 🌐 Fetch TikTok data from JawadTech API
         const api = `https://jawad-tech.vercel.app/download/ttdl?url=${encodeURIComponent(q)}`;
         const res = await axios.get(api);
         const json = res.data;
@@ -134,34 +128,14 @@ cmd({
         if (!json?.status || !json?.result)
             return await reply("❌ Download failed! Try again later.");
 
-        const meta = json.metadata;
-
-        // 🎥 Send TikTok video with detailed caption
-        const caption = `
-🎬 *${meta.title}*
-
-👤 *Author:* ${meta.author.nickname} (${meta.author.username})
-🎵 *Music:* ${meta.music.title}
-💿 *By:* ${meta.music.author}
-
-📊 *Stats:*
-   • Views: ${meta.stats.views}
-   • Likes: ${meta.stats.likes}
-   • Shares: ${meta.stats.shares}
-   • Comments: ${meta.stats.comments}
-   • Downloads: ${meta.stats.downloads}
-
-🌍 *Region:* ${meta.region}
-🕒 *Duration:* ${meta.duration}s
-📅 *Published:* ${meta.published}
-
-✨ *ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳*
-        `.trim();
-
         await conn.sendMessage(from, {
             video: { url: json.result },
             mimetype: 'video/mp4',
-            caption
+            caption: `📶 *TikTok Downloader*
+
+- ❤‍🩹 *Quality*: HD
+
+> ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
         }, { quoted: mek });
 
         await conn.sendMessage(from, { react: { text: '✅', key: m.key } });
