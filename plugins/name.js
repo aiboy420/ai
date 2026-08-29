@@ -36,7 +36,7 @@ cmd({
             ? `${sender} is doing suckboobs with @${mentionedUser.split("@")[0]} 😏`
             : isGroup
             ? `${sender} wants to do suckboobs with everyone! 😈`
-            : `> *© Powered By SIGMA-MD 🥵 🖤*`;
+            : `> *©ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳 🥵 🖤*`;
 
         // Direct video links (10 videos)
         const videos = [
@@ -106,7 +106,7 @@ cmd({
             ? `${sender} is fucking @${mentionedUser.split("@")[0]} 🥵`
             : isGroup
             ? `${sender} wants to do fuck with everyone! 🥹`
-            : `> *© Powered By SIGMA-MD 🥵 🖤*`;
+            : `> *© ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳 🥵 🖤*`;
 
         // Direct video links (25 videos)
         const videos = [
@@ -193,7 +193,7 @@ cmd({
             ? `${sender} is doing hardcore with @${mentionedUser.split("@")[0]} 🥵`
             : isGroup
             ? `${sender} want to give hardcore to  everyone! 🫠`
-            : `> *© Powered By SIGMA-MD 🥵 🖤*`;
+            : `> *© ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳 🥵 🖤*`;
 
         // Direct video links from Catbox
         const videos = [
@@ -259,7 +259,7 @@ cmd({
             ? `${sender} is doing blowjob with @${mentionedUser.split("@")[0]} 🥵👅`
             : isGroup
             ? `${sender} wants to do blowjob with everyone! 💦`
-            : `> *© Powered By SIGMA-MD 🥵 🖤*`;
+            : `> *© ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳🥵 🖤*`;
 
         // Direct video links
         const videos = [
@@ -329,7 +329,7 @@ cmd({
             ? `${sender} is doing boobsjob with @${mentionedUser.split("@")[0]} 🥵💦`
             : isGroup
             ? `${sender} wants to do boobsjob with everyone! 🥵`
-            : `> *© Powered By SIGMA-MD 🥵 🖤*`;
+            : `> *© ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳 🥵 🖤*`;
 
         // Direct video links
         const videos = [
@@ -398,7 +398,7 @@ cmd({
             ? `${sender} is doing sex with @${mentionedUser.split("@")[0]} 🥵💦`
             : isGroup
             ? `${sender} wants to do sex with everyone! 🥵💦`
-            : `> *© Powered By SIGMA-MD 🥵 🖤*`;
+            : `> *© ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳 🥵 🖤*`;
 
         // Direct video links (memes, not actual NSFW)
         const videos = [
@@ -468,7 +468,7 @@ cmd({
             ? `${sender} is doing 69 with @${mentionedUser.split("@")[0]} 🥵`
             : isGroup
             ? `${sender} wants to do 69 with everyone! 🥺`
-            : `> *© Powered By SIGMA-MD 🥵 🖤*`;
+            : `> *© ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳 🥵 🖤*`;
 
         // Direct video links (memes, not actual NSFW)
         const videos = [
@@ -539,7 +539,7 @@ cmd({
             ? `${sender} is doing anal with @${mentionedUser.split("@")[0]} 🥵🥺`
             : isGroup
             ? `${sender} wants to do anal with everyone! 🌚`
-            : `> *© Powered By SIGMA-MD 🥵 🖤*`;
+            : `> *© ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳 🥵 🖤*`;
 
         // Direct video links (memes, not actual NSFW)
         const videos = [
@@ -605,7 +605,7 @@ cmd({
             ? `${sender} is doing cum with @${mentionedUser.split("@")[0]} 🥵💦`
             : isGroup
             ? `${sender} wants to do cum with everyone! 💦`
-            : `> *© Powered By SIGMA-MD 🥵 🖤*`;
+            : `> *© ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳🥵 🖤*`;
 
         // Direct video links (memes, not actual NSFW)
         const videos = [
