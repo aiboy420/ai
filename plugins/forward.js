@@ -10,7 +10,7 @@ cmd({
     pattern: "forward",
     alias: ["fwd"],
     react: "📤",
-    desc: "Forward replied message to all groups",
+    desc: "Forward replied message to all groups (Owner only)",
     category: "owner",
     use: ".forward",
     filename: __filename
@@ -18,54 +18,61 @@ cmd({
     args,
     q,
     reply,
-    from
+    from,
+    isCreator
 }) => {
 
     try {
 
-        // ==================== BOT NUMBER CHECK ====================
-        const botJid = conn.user?.id?.split(':')[0] + '@s.whatsapp.net';
-        const senderJid = mek.sender?.split(':')[0] + '@s.whatsapp.net';
-
-        if (!botJid || senderJid !== botJid) {
-            return reply("*📛 Only the bot owner number can use this command.*");
+        // Owner check
+        if (!isCreator) {
+            return reply("*📛 This is an owner command.*");
         }
 
-        // ==================== REPLY CHECK ====================
+        // Quoted message check
         if (!mek.quoted) {
             return reply(
-                "*📌 Reply to any message/media and use .forward*"
+                "*📌 Reply to any message and use .forward*\n\n" +
+                "Supported:\n" +
+                "🎥 Video\n" +
+                "🖼️ Image\n" +
+                "🎵 Audio\n" +
+                "📄 Document\n" +
+                "🎭 Sticker\n" +
+                "💬 Text"
             );
         }
 
-        // ==================== GET ALL GROUPS ====================
+        // Get all groups
         const groups = await conn.groupFetchAllParticipating();
         const groupIds = Object.keys(groups);
 
-        if (!groupIds.length) {
+        if (groupIds.length === 0) {
             return reply("*❌ No groups found.*");
         }
 
         let success = 0;
         let failed = 0;
 
-        // ==================== FORWARD ====================
+        // ==================== PREPARE ORIGINAL MESSAGE ====================
+        const quotedMessage = mek.quoted?.fakeObj || mek.quoted;
+
+        // Forward to all groups
         for (const groupId of groupIds) {
 
             try {
 
-                /*
-                 * Use the original quoted message.
-                 * copyNForward keeps the original message
-                 * type/media instead of downloading it manually.
-                 */
+                // Use original WhatsApp message for forwarding
                 await conn.copyNForward(
                     groupId,
-                    mek.quoted,
+                    quotedMessage,
                     true
                 );
 
                 success++;
+
+                // Delay between groups
+                await new Promise(resolve => setTimeout(resolve, 1000));
 
             } catch (error) {
 
@@ -73,18 +80,13 @@ cmd({
 
                 console.error(
                     `❌ Forward failed in ${groupId}:`,
-                    error?.message || error
+                    error.message
                 );
             }
-
-            // Delay between groups
-            await new Promise(resolve =>
-                setTimeout(resolve, 1500)
-            );
         }
 
-        // ==================== FINAL RESULT ====================
-        return reply(
+        // Simple final result
+        await reply(
             `✅ Successfully sent to ${success} groups.\n` +
             `❌ Failed: ${failed} groups.\n` +
             `👥 Total groups: ${groupIds.length}`
@@ -99,7 +101,7 @@ cmd({
 
         return reply(
             `❌ *Error in .forward command:*\n` +
-            `\`\`\`${error?.message || error}\`\`\``
+            `\`\`\`${error.message}\`\`\``
         );
     }
 });
