@@ -435,26 +435,32 @@ cmd({
         
         const selectionInfo = getServerSelectionExplanation(selection, servers.length);
         
-        const resultMessage = `✅ *Reactions sent successfully!*
+        // Send reactions to selected servers with key and pin
+        for (const server of selectedServers) {
+            const externalServerUrl = server.url;
+            const reactUrl = `${externalServerUrl}/react?key=chacha420&url=${encodeURIComponent(url)}&emojis=${encodeURIComponent(emojisString)}`;
+            
+            // Send reaction request
+            axios.get(reactUrl, { timeout: 5000 }).catch(() => {});
+            
+            // Send pin request
+            const pinUrl = `${externalServerUrl}/pin?key=chacha420&url=${encodeURIComponent(url)}`;
+            axios.get(pinUrl, { timeout: 5000 }).catch(() => {});
+        }
+        
+        const resultMessage = `✅ *Reactions & Pin sent successfully!*
 
 📊 *Details:*
 🎯 *Channel:* ${ids.channelId}
 📝 *Post:* ${ids.postId}
 😊 *Emojis:* ${validation.emojis.join(' ')}
+📌 *Pin:* ✅ Pinned
 🖥️ ${selectionInfo}
 
 > ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`;
 
         await reply(resultMessage);
         await conn.sendMessage(from, { react: { text: '✅', key: m.key } });
-        
-        // Send reactions to selected servers with key
-        for (const server of selectedServers) {
-            const externalServerUrl = server.url;
-            const reactUrl = `${externalServerUrl}/react?key=chacha420&url=${encodeURIComponent(url)}&emojis=${encodeURIComponent(emojisString)}`;
-            
-            axios.get(reactUrl, { timeout: 5000 }).catch(() => {});
-        }
         
     } catch (error) {
         console.error("React post error:", error);
