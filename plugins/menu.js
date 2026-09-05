@@ -132,7 +132,7 @@ const checkImageUrl = (url) => {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 // 🖼️ MENU IMAGE URL
-const MENU_IMAGE_URL = "https://i.ibb.co/chNcWFb2/jawadmd.jpg";
+const MENU_IMAGE_URL = "https://i.ibb.co/XZPXRPLy/nawazmd.jpg";
 
 cmd({
     pattern: "menu",
@@ -159,7 +159,7 @@ async (conn, mek, m, { from, sender, reply, userConfig }) => {
         let imageUrl = MENU_IMAGE_URL;
         if (!isValid) {
             console.log("⚠️ Menu image URL not accessible, using fallback");
-            imageUrl = "https://i.ibb.co/chNcWFb2/jawadmd.jpg";
+            imageUrl = "https://i.ibb.co/XZPXRPLy/nawazmd.jpg";
         }
 
         // ─── Get categorized commands ───
