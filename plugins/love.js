@@ -8,7 +8,7 @@ cmd({
     pattern: "boom",
     alias: ["lov"],
     desc: "Send a love message",
-    category: "fun",
+    category: "owner",
     react: "💥",
     filename: __filename
 },
@@ -20,7 +20,7 @@ async (conn, mek, m, { from, reply }) => {
             return reply("❤️ Example: .love I love you");
         }
 
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 30; i++) {
             await conn.sendMessage(
                 from,
                 { text: text },
