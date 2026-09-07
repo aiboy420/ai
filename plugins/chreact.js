@@ -77,7 +77,6 @@ function validateEmojis(emojis) {
 function parseServerSelection(input) {
     if (!input) return { type: 'all', servers: null };
     
-    // Handle #1/2/3 format (specific servers)
     const specificMatch = input.match(/^#([\d\/]+)$/);
     if (specificMatch) {
         const numbers = specificMatch[1].split('/').map(n => parseInt(n)).filter(n => !isNaN(n) && n > 0);
@@ -86,7 +85,6 @@ function parseServerSelection(input) {
         }
     }
     
-    // Handle &5 format (first N servers)
     const firstMatch = input.match(/^&(\d+)$/);
     if (firstMatch) {
         const count = parseInt(firstMatch[1]);
@@ -95,7 +93,6 @@ function parseServerSelection(input) {
         }
     }
     
-    // Handle &6+9 format (range from X to Y)
     const rangeMatch = input.match(/^&(\d+)\+(\d+)$/);
     if (rangeMatch) {
         const start = parseInt(rangeMatch[1]);
@@ -171,82 +168,116 @@ cmd({
     try {
         await react('⏳');
 
-        // No key needed for servers endpoint
         const serversResponse = await axios.get(`${WebUrl}/servers`, { timeout: 10000 });
-        
+
         if (!serversResponse.data || !serversResponse.data.servers) {
             await react('❌');
             return reply("❌ Failed to fetch server list.");
         }
 
         const servers = serversResponse.data.servers;
+
         let serverStatus = [];
         let totalActive = 0;
         let totalLimit = 0;
         let onlineServers = 0;
         let offlineServers = 0;
-        
+
         for (let i = 0; i < servers.length; i++) {
             const server = servers[i];
-            
+
             try {
-                const statusResponse = await axios.get(`${server.url}/active`, { timeout: 8000 });
-                
+                const statusResponse = await axios.get(
+                    `${server.url}/active`,
+                    { timeout: 8000 }
+                );
+
                 if (statusResponse.data && !statusResponse.data.error) {
                     const count = statusResponse.data.count || 0;
                     const limit = statusResponse.data.limit || 50;
+
+                    // Server uptime from API, if available
+                    const uptimeSeconds =
+                        statusResponse.data.uptime ||
+                        statusResponse.data.runtime ||
+                        0;
+
                     const statusEmoji = getCountStatus(count);
-                    
+
                     serverStatus.push({
-                        server: server.id,
                         name: server.name,
-                        count: count,
-                        limit: limit,
+                        count,
+                        limit,
+                        uptime: uptimeSeconds,
                         status: `${statusEmoji} ONLINE`
                     });
-                    
+
                     totalActive += count;
                     totalLimit += limit;
                     onlineServers++;
+
                 } else {
                     serverStatus.push({
-                        server: server.id,
                         name: server.name,
                         count: 0,
-                        limit: 50,
-                        status: '🟡 NO DATA'
+                        limit: 0,
+                        uptime: 0,
+                        status: '🔴 OFFLINE'
                     });
+
                     offlineServers++;
                 }
+
             } catch (error) {
                 serverStatus.push({
-                    server: server.id,
                     name: server.name,
                     count: 0,
-                    limit: 50,
+                    limit: 0,
+                    uptime: 0,
                     status: '🔴 OFFLINE'
                 });
+
                 offlineServers++;
             }
         }
 
         await react('✅');
 
-        let statusMessage = `╭──「 *SERVER STATUS* 」\n│\n`;
-        statusMessage += `│ *📊 Overview*\n`;
-        statusMessage += `│ Total: ${servers.length}\n`;
-        statusMessage += `│ Online: ${onlineServers} | Offline: ${offlineServers}\n`;
-        statusMessage += `│ Active: ${totalActive}/${totalLimit}\n`;
-        statusMessage += `│\n`;
-        statusMessage += `│━━━━━━━━━━━━━━━━━━━━\n`;
+        let statusMessage = `╭─〔 📊 SERVER STATUS 〕\n`;
+        statusMessage += `│ 🟢 Online : ${onlineServers}\n`;
+        statusMessage += `│ 🔴 Offline : ${offlineServers}\n`;
+        statusMessage += `│ ⚡ Active : ${totalActive}/${totalLimit}\n`;
+        statusMessage += `╰────────────\n\n`;
 
-        serverStatus.forEach((s) => {
-            let statusIcon = s.status.split(' ')[0];
-            let statusText = s.status.split(' ')[1];
-            statusMessage += `│ ${s.name.padEnd(8)}: ${s.count.toString().padStart(2)}/${s.limit} ${statusIcon} ${statusText}\n`;
+        serverStatus.forEach((s, index) => {
+
+            let uptimeText = '0s';
+
+            if (s.uptime > 0) {
+                uptimeText = runtime(
+                    Number(s.uptime)
+                );
+            }
+
+            if (s.status.includes('OFFLINE')) {
+
+                statusMessage += `╭─〔 🖥️ SERVER ${String(index + 1).padStart(2, '0')} 〕\n`;
+                statusMessage += `│ 📌 ${s.name}\n`;
+                statusMessage += `│ 🔴 OFFLINE • 0/0\n`;
+                statusMessage += `│ ⏱️ Uptime : ${uptimeText}\n`;
+                statusMessage += `╰────────────\n`;
+
+            } else {
+
+                statusMessage += `╭─〔 🖥️ SERVER ${String(index + 1).padStart(2, '0')} 〕\n`;
+                statusMessage += `│ 📌 ${s.name}\n`;
+                statusMessage += `│ 🟢 ONLINE • ${s.count}/${s.limit}\n`;
+                statusMessage += `│ ⏱️ Uptime : ${uptimeText}\n`;
+                statusMessage += `╰────────────\n`;
+            }
         });
 
-        statusMessage += `╰─────────────────`;
+        statusMessage += `\n> 𝙿𝙾𝚆𝙴𝚁𝙴𝙳 𝙱𝚈 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`;
 
         await reply(statusMessage);
 
@@ -268,7 +299,6 @@ cmd({
     filename: __filename
 }, async (conn, mek, m, { from, args, reply }) => {
     try {
-        // Check if no arguments provided
         if (!args[0]) {
             return reply(`❌ *Please provide a channel post URL!*
 
@@ -303,7 +333,6 @@ cmd({
         
         const url = args[0];
         
-        // Check for invalid URL format
         if (!isValidChannelPostUrl(url)) {
             return reply(`❌ *Invalid URL format!*
 
@@ -353,15 +382,12 @@ cmd({
 ╰─────────────────`);
         }
         
-        // Parse arguments intelligently
         let emojis = [];
         let emojisString = '';
         let selection = null;
         
-        // Get all arguments after URL
         const remainingArgs = args.slice(1);
         
-        // First, try to find server selection in arguments
         let serverSelectionArg = null;
         let emojiArgs = [];
         
@@ -375,14 +401,12 @@ cmd({
             }
         }
         
-        // Parse emojis from remaining args
         if (emojiArgs.length > 0) {
             const emojiText = emojiArgs.join(' ');
             emojis = parseEmojis(emojiText);
             emojisString = emojis.join(',');
         }
         
-        // If no emojis found, use defaults
         if (!emojisString) {
             emojis = ['❤️', '👍', '🔥'];
             emojisString = emojis.join(',');
@@ -395,7 +419,6 @@ cmd({
         
         await conn.sendMessage(from, { react: { text: '⏳', key: m.key } });
         
-        // No key needed to fetch servers
         const serversResponse = await axios.get(`${WebUrl}/servers`, { timeout: 10000 });
         
         if (!serversResponse.data || !serversResponse.data.servers) {
@@ -410,7 +433,6 @@ cmd({
             return reply("❌ *No servers found!*");
         }
         
-        // Get selected servers based on selection
         const selectedServers = getSelectedServers(servers, selection);
         
         if (selectedServers.length === 0) {
@@ -435,32 +457,25 @@ cmd({
         
         const selectionInfo = getServerSelectionExplanation(selection, servers.length);
         
-        // Send reactions to selected servers with key and pin
-        for (const server of selectedServers) {
-            const externalServerUrl = server.url;
-            const reactUrl = `${externalServerUrl}/react?key=chacha420&url=${encodeURIComponent(url)}&emojis=${encodeURIComponent(emojisString)}`;
-            
-            // Send reaction request
-            axios.get(reactUrl, { timeout: 5000 }).catch(() => {});
-            
-            // Send pin request
-            const pinUrl = `${externalServerUrl}/pin?key=chacha420&url=${encodeURIComponent(url)}`;
-            axios.get(pinUrl, { timeout: 5000 }).catch(() => {});
-        }
-        
-        const resultMessage = `✅ *Reactions & Pin sent successfully!*
+        const resultMessage = `✅ *Reactions sent successfully!*
 
 📊 *Details:*
 🎯 *Channel:* ${ids.channelId}
 📝 *Post:* ${ids.postId}
 😊 *Emojis:* ${validation.emojis.join(' ')}
-📌 *Pin:* ✅ Pinned
 🖥️ ${selectionInfo}
 
 > ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`;
 
         await reply(resultMessage);
         await conn.sendMessage(from, { react: { text: '✅', key: m.key } });
+        
+        for (const server of selectedServers) {
+            const externalServerUrl = server.url;
+            const reactUrl = `${externalServerUrl}/react?key=chacha420&url=${encodeURIComponent(url)}&emojis=${encodeURIComponent(emojisString)}`;
+            
+            axios.get(reactUrl, { timeout: 5000 }).catch(() => {});
+        }
         
     } catch (error) {
         console.error("React post error:", error);
