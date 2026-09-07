@@ -243,43 +243,28 @@ cmd({
 
         await react('✅');
 
-        let statusMessage = `╭─〔 📊 SERVER STATUS 〕\n`;
-        statusMessage += `│ 🟢 Online : ${onlineServers}\n`;
-        statusMessage += `│ 🔴 Offline : ${offlineServers}\n`;
-        statusMessage += `│ ⚡ Active : ${totalActive}/${totalLimit}\n`;
-        statusMessage += `╰────────────\n\n`;
+let statusMessage = `╭──「 *SERVER STATUS* 」
+│
+│ *📊 Overview*
+│ Total: ${servers.length}
+│ Online: ${onlineServers} | Offline: ${offlineServers}
+│ Active: ${totalActive}/${totalLimit}
+│
+│━━━━━━━━━━━━━━━━━━━━
+`;
 
-        serverStatus.forEach((s, index) => {
+serverStatus.forEach((s, index) => {
+    const statusEmoji = s.status.includes('OFFLINE')
+        ? '🔴'
+        : getCountStatus(s.count);
 
-            let uptimeText = '0s';
+    statusMessage += `│ Server ${index + 1}: ${String(s.count).padStart(2, ' ')}/${s.limit} ${statusEmoji} ${s.status.includes('OFFLINE') ? 'OFFLINE' : 'ONLINE'}
+`;
+});
 
-            if (s.uptime > 0) {
-                uptimeText = runtime(
-                    Number(s.uptime)
-                );
-            }
+statusMessage += `╰─────────────────`;
 
-            if (s.status.includes('OFFLINE')) {
-
-                statusMessage += `╭─〔 🖥️ SERVER ${String(index + 1).padStart(2, '0')} 〕\n`;
-                statusMessage += `│ 📌 ${s.name}\n`;
-                statusMessage += `│ 🔴 OFFLINE • 0/0\n`;
-                statusMessage += `│ ⏱️ Uptime : ${uptimeText}\n`;
-                statusMessage += `╰────────────\n`;
-
-            } else {
-
-                statusMessage += `╭─〔 🖥️ SERVER ${String(index + 1).padStart(2, '0')} 〕\n`;
-                statusMessage += `│ 📌 ${s.name}\n`;
-                statusMessage += `│ 🟢 ONLINE • ${s.count}/${s.limit}\n`;
-                statusMessage += `│ ⏱️ Uptime : ${uptimeText}\n`;
-                statusMessage += `╰────────────\n`;
-            }
-        });
-
-        statusMessage += `\n> 𝙿𝙾𝚆𝙴𝚁𝙴𝙳 𝙱𝚈 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`;
-
-        await reply(statusMessage);
+await reply(statusMessage);
 
     } catch (error) {
         console.error("Status command error:", error);
