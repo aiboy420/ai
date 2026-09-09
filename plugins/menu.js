@@ -44,14 +44,14 @@ const formatCategory = (category, cmds) => {
     if (validCmds.length === 0) return '';
 
     let body = `╭━━〔 *${toBoldFont(category.toUpperCase())}* 〕━━┈⊷\n`;
-    body += `┃❖╭─────────────·๏\n`;
+    body += `┃❖╭─────────·๏\n`;
 
     for (const c of validCmds) {
-        body += `┃❖┃ ${toBoldFont(c.pattern)}\n`;
+        body += `┃❖┃ .${toBoldFont(c.pattern)}\n`;
     }
 
-    body += `┃❖└───────────┈⊷\n`;
-    body += `╰──────────────┈⊷\n`;
+    body += `┃❖└─────────┈⊷\n`;
+    body += `╰─────────┈⊷\n`;
 
     return body;
 };
@@ -174,26 +174,26 @@ async (conn, mek, m, { from, sender, reply, userConfig }) => {
         }
 
         // ─── Build menu text ───
-        const dec = `    〔 *${toBoldFont(BOT_NAME)}* 〕
-┃★╭──────────────
+        const dec = `╭━━〔 ✦ ${toBoldFont(BOT_NAME)} ✦ 〕━━┈⊷
+┃★╭──────────┈⊷
 ┃★│ ${toBoldFont("Owner")} : ${toBoldFont(OWNER_NAME)}
 ┃★│ ${toBoldFont("Mode")} : ${toBoldFont(MODE)}
 ┃★│ ${toBoldFont("Prefix")} : ${PREFIX}
 ┃★│ ${toBoldFont("Version")} : ${toBoldFont(VERSION)}
 ┃★│ ${toBoldFont("Runtime")} : ${runtime(process.uptime())}
 ┃★│ ${toBoldFont("Total Commands")} : ${totalCommands}
-┃★╰──────────────
-╰━━━━━━━━━━━━━━━┈⊷
+┃★╰──────────┈⊷
+╰━━━━━━━━━━┈⊷
 
 ${menuSections}
 
 ╭━━〔 *${toBoldFont("Support")}* 〕━━┈⊷
-┃❖╭─────────────·๏
-┃❖┃ ${toBoldFont("owner")}
-┃❖┃ ${toBoldFont("ping")}
-┃❖┃ ${toBoldFont("menu")}
-┃❖└───────────┈⊷
-╰──────────────┈⊷
+┃❖╭─────────·๏
+┃❖┃ .${toBoldFont("owner")}
+┃❖┃ .${toBoldFont("ping")}
+┃❖┃ .${toBoldFont("menu")}
+┃❖└─────────┈⊷
+╰─────────┈⊷
 
 > ${toBoldFont(DESCRIPTION)}`;
 
