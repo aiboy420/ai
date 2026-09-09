@@ -1,73 +1,105 @@
 // autoGreeting.js
+// NAWAZ MD - Private Inbox Auto Greeting
 
 import { cmd } from '../command.js';
 
 const greetings = [
-    'hello',
     'hi',
+    'hii',
+    'hiii',
+    'hello',
+    'helloo',
+    'helo',
+    'heloo',
     'hey',
-    'hello bro',
-    'hello brother',
-    'hi bro',
-    'hi brother',
-    'hey bro',
-    'hey brother',
-    'hello sir',
-    'hi sir',
-    'hey sir',
-    'hello maam',
-    "hello ma'am",
-    'hi maam',
-    "hi ma'am",
-    'hey maam',
-    "hey ma'am",
-    'hello madam',
-    'hi madam',
-    'hey madam',
+    'hy',
     'salam',
     'salaam',
+    'aoa',
     'assalamualaikum',
-    'assalamu alaikum'
+    'assalamu alaikum',
+    'assalam o alaikum',
+
+    'hi bro',
+    'hii bro',
+    'hello bro',
+    'hey bro',
+
+    'hi brother',
+    'hello brother',
+    'hey brother',
+
+    'hi sir',
+    'hello sir',
+    'hey sir',
+
+    'hi maam',
+    'hello maam',
+    'hey maam',
+
+    "hi ma'am",
+    "hello ma'am",
+    "hey ma'am",
+
+    'hi madam',
+    'hello madam',
+    'hey madam'
 ];
 
-cmd({
-    pattern: "autogreeting",
-    alias: ["greet"],
-    use: ".autogreeting",
-    desc: "Auto reply to greetings in private chat",
-    category: "main",
+cmd(
+{
+    on: 'body',
+    fromMe: false,
+    dontAddCommandList: true,
     filename: __filename
 },
-async (conn, mek, m, { from, isGroup }) => {
+
+async (
+    conn,
+    mek,
+    m,
+    {
+        from,
+        body,
+        isGroup
+    }
+) => {
+
     try {
 
-        // Only work in private inbox
+        // Only Private Inbox
         if (isGroup) return;
 
-        const text =
-            mek.message?.conversation ||
-            mek.message?.extendedTextMessage?.text ||
-            mek.message?.imageMessage?.caption ||
-            mek.message?.videoMessage?.caption ||
-            "";
+        // Ignore empty messages
+        if (!body || typeof body !== 'string') return;
 
-        const message = text.trim().toLowerCase();
+        // Clean incoming message
+        const text = body
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, ' ');
 
-        const isGreeting = greetings.some(greeting => {
-            return message === greeting;
-        });
+        // Check greeting
+        if (!greetings.includes(text)) return;
 
-        if (!isGreeting) return;
-
+        // Auto Reply
         await conn.sendMessage(
             from,
             {
-                text: "Yes Brother! How can I help you? 😊"
+                text: 'Yes Brother! How can I help you? 😊'
             },
-            { quoted: mek }
+            {
+                quoted: mek
+            }
         );
 
     } catch (error) {
-        console.error("❌ Auto Greeting Error:", error);
+
+        console.error(
+            '❌ Auto Greeting Error:',
+            error
+        );
+
     }
+
 });
