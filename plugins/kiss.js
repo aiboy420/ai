@@ -8,79 +8,48 @@ const __dirname = path.dirname(__filename);
 cmd({
     pattern: "kiss",
     react: "💋",
-    desc: "Kiss someone in the group",
+    desc: "Send a kiss video to a user",
     category: "fun",
     use: ".kiss @user",
     filename: __filename
 }, async (conn, mek, m, {
-    args,
-    q,
     reply,
-    from,
-    isGroup
+    from
 }) => {
     try {
-
-        if (!isGroup) {
+        // Group only
+        if (!from.endsWith('@g.us')) {
             return reply("❌ *This command can only be used in groups.*");
         }
 
-        // Group metadata
+        // Command user's JID
+        const sender = m.sender || m.key?.participant || mek.key?.participant;
+
+        // Get group metadata
         const groupMetadata = await conn.groupMetadata(from);
         const participants = groupMetadata.participants || [];
 
-        // Command sender
-        const sender = m.sender || mek.key.participant || mek.participant;
+        // Check mentioned user
+        let target = null;
 
-        // Get mentioned users
-        let mentionedUsers = [];
-
-        if (mek.message) {
-            const msg =
-                mek.message.extendedTextMessage ||
-                mek.message.imageMessage ||
-                mek.message.videoMessage ||
-                mek.message.documentMessage ||
-                mek.message.buttonsResponseMessage ||
-                mek.message.templateButtonReplyMessage;
-
-            if (msg?.contextInfo?.mentionedJid) {
-                mentionedUsers = msg.contextInfo.mentionedJid;
-            }
+        if (m.mentionedJid && m.mentionedJid.length > 0) {
+            target = m.mentionedJid[0];
         }
 
-        // If user is mentioned, use that user
-        let target;
+        // If no mention, select random user
+        if (!target) {
+            const users = participants.filter(
+                user => user.id && user.id !== sender
+            );
 
-        if (mentionedUsers.length > 0) {
-            target = mentionedUsers[0];
-        } else {
-            // Random group member
-            const availableUsers = participants
-                .map(p => p.id)
-                .filter(jid =>
-                    jid !== sender &&
-                    jid !== conn.user.id
-                );
-
-            if (!availableUsers.length) {
-                return reply("❌ *No other user found in this group.*");
+            if (!users.length) {
+                return reply("❌ *No user found to kiss.*");
             }
 
-            target =
-                availableUsers[
-                    Math.floor(Math.random() * availableUsers.length)
-                ];
+            target = users[Math.floor(Math.random() * users.length)].id;
         }
 
-        const mentions = [sender, target];
-
-        const caption =
-`💋 *Kissing For You* 💋
-
-@${sender.split('@')[0]} 💋 @${target.split('@')[0]}
-
-> ©ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`;
+        const caption = `💋 *Kissing for you* 😘`;
 
         await conn.sendMessage(
             from,
@@ -89,8 +58,7 @@ cmd({
                     url: 'https://files.catbox.moe/9g3ebs.mp4'
                 },
                 caption: caption,
-                gifPlayback: true,
-                mentions: mentions
+                mentions: [sender, target]
             },
             {
                 quoted: mek
