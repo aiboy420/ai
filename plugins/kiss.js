@@ -86,7 +86,7 @@ cmd({
             from,
             {
                 video: {
-                    url: 'https://files.catbox.moe/az510l.mp4'
+                    url: 'https://files.catbox.moe/9g3ebs.mp4'
                 },
                 caption: caption,
                 gifPlayback: true,
