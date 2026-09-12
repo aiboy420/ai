@@ -1,253 +1,673 @@
 // fun-gifs.js - NAWAZ MD Fun GIF Commands
-// Powered By NAWAZ MD
+// Powered By 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳
 
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 import { cmd } from '../command.js';
 import axios from 'axios';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
-// ============ CONFIG ============
+// ===============================
+// CONFIG
+// ===============================
+
 const PRIMARY_API = 'https://nekos.best/api/v2';
 const FALLBACK_API = 'https://api.waifu.pics/sfw';
 
-// Category mapping: Nekos.best -> Waifu.pics fallback
+const POWER_BY = '𝙿𝚘𝚠𝚎𝚛𝚎𝚍 𝙱𝚢 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳';
+
+// ===============================
+// CATEGORY MAP
+// ===============================
+
 const CATEGORY_MAP = {
-  cuddle: { primary: 'cuddle', fallback: 'cuddle' },
-  smooch: { primary: 'kiss', fallback: 'kiss' },
-  bonk: { primary: 'bonk', fallback: 'slap' },
-  groove: { primary: 'dance', fallback: 'dance' },
-  cheer: { primary: 'happy', fallback: 'happy' },
-  tear: { primary: 'cry', fallback: 'cry' }
+    cuddle: {
+        primary: 'cuddle',
+        fallback: 'cuddle'
+    },
+
+    smooch: {
+        primary: 'kiss',
+        fallback: 'kiss'
+    },
+
+    bonk: {
+        primary: 'bonk',
+        fallback: 'slap'
+    },
+
+    groove: {
+        primary: 'dance',
+        fallback: 'dance'
+    },
+
+    cheer: {
+        primary: 'happy',
+        fallback: 'happy'
+    },
+
+    tear: {
+        primary: 'cry',
+        fallback: 'cry'
+    }
 };
 
-// Caption templates
+// ===============================
+// CAPTIONS
+// ===============================
+
 const CAPTIONS = {
-  cuddle: (sender, target) => `🤗 *${sender}* cuddled *${target}*!\n\n⚡ Powered By NAWAZ MD`,
-  smooch: (sender, target) => `💋 *${sender}* kissed *${target}*!\n\n⚡ Powered By NAWAZ MD`,
-  bonk: (sender, target) => `👋 *${sender}* bonked *${target}*!\n\n⚡ Powered By NAWAZ MD`,
-  groove: (sender, target) => `💃 *${sender}* danced with *${target}*!\n\n⚡ Powered By NAWAZ MD`,
-  cheer: (sender, target) => `🎉 *${sender}* cheered for *${target}*!\n\n⚡ Powered By NAWAZ MD`,
-  tear: (sender, target) => `😢 *${sender}* is sad because of *${target}*...\n\n⚡ Powered By NAWAZ MD`
+
+    cuddle: (sender, target) =>
+`🤗 *CUDDLING FOR YOU* 🤗
+
+@${sender} 🤗 @${target}
+
+> ${POWER_BY}`,
+
+    smooch: (sender, target) =>
+`💋 *SMOOCH FOR YOU* 💋
+
+@${sender} 💋 @${target}
+
+> ${POWER_BY}`,
+
+    bonk: (sender, target) =>
+`👋 *BONK FOR YOU* 👋
+
+@${sender} 👋 @${target}
+
+> ${POWER_BY}`,
+
+    groove: (sender, target) =>
+`💃 *DANCING FOR YOU* 💃
+
+@${sender} 💃 @${target}
+
+> ${POWER_BY}`,
+
+    cheer: (sender, target) =>
+`😊 *HAPPY FOR YOU* 😊
+
+@${sender} 😊 @${target}
+
+> ${POWER_BY}`,
+
+    tear: (sender, target) =>
+`😢 *SAD FOR YOU* 😢
+
+@${sender} 😢 @${target}
+
+> ${POWER_BY}`
 };
 
-// ============ HELPER FUNCTIONS ============
+// ===============================
+// PRIMARY API
+// ===============================
 
-/**
- * Fetch GIF from primary API (Nekos.best)
- */
-async function fetchFromPrimary(category) {
-  try {
-    const res = await axios.get(`${PRIMARY_API}/${category}`, { timeout: 8000 });
-    
-    // Nekos.best returns { results: [{ url: "..." }] }
-    if (res.data && res.data.results && res.data.results[0] && res.data.results[0].url) {
-      return res.data.results[0].url;
+async function fetchPrimary(category) {
+
+    try {
+
+        const response = await axios.get(
+            `${PRIMARY_API}/${category}`,
+            {
+                timeout: 10000,
+                headers: {
+                    'User-Agent': 'NAWAZ-MD'
+                }
+            }
+        );
+
+        const results = response?.data?.results;
+
+        if (
+            Array.isArray(results) &&
+            results.length &&
+            results[0]?.url
+        ) {
+            return results[0].url;
+        }
+
+        return null;
+
+    } catch (error) {
+
+        console.log(
+            `[NAWAZ GIF] Primary ${category}:`,
+            error.response?.status || error.message
+        );
+
+        return null;
     }
-    throw new Error('Invalid primary response structure');
-  } catch (error) {
-    console.log(`[GIF Primary] ${category} failed:`, error.message);
+}
+
+// ===============================
+// FALLBACK API
+// ===============================
+
+async function fetchFallback(category) {
+
+    try {
+
+        const response = await axios.get(
+            `${FALLBACK_API}/${category}`,
+            {
+                timeout: 10000,
+                headers: {
+                    'User-Agent': 'NAWAZ-MD'
+                }
+            }
+        );
+
+        if (response?.data?.url) {
+            return response.data.url;
+        }
+
+        return null;
+
+    } catch (error) {
+
+        console.log(
+            `[NAWAZ GIF] Fallback ${category}:`,
+            error.response?.status || error.message
+        );
+
+        return null;
+    }
+}
+
+// ===============================
+// GET GIF
+// ===============================
+
+async function getGif(commandName) {
+
+    const map = CATEGORY_MAP[commandName];
+
+    if (!map) {
+        return null;
+    }
+
+    // Primary
+    let gif = await fetchPrimary(map.primary);
+
+    if (gif) {
+        return gif;
+    }
+
+    // Small delay
+    await new Promise(resolve => setTimeout(resolve, 700));
+
+    // Fallback
+    gif = await fetchFallback(map.fallback);
+
+    if (gif) {
+        return gif;
+    }
+
     return null;
-  }
 }
 
-/**
- * Fetch GIF from fallback API (Waifu.pics)
- */
-async function fetchFromFallback(category) {
-  try {
-    const res = await axios.get(`${FALLBACK_API}/${category}`, { timeout: 8000 });
-    
-    // Waifu.pics returns { url: "..." }
-    if (res.data && res.data.url) {
-      return res.data.url;
+// ===============================
+// GET SENDER
+// ===============================
+
+function getSender(mek, m, from) {
+
+    return (
+        m?.sender ||
+        mek?.key?.participant ||
+        mek?.participant ||
+        from
+    );
+}
+
+// ===============================
+// GET MENTIONED USER
+// ===============================
+
+function getMentionedUser(mek, m) {
+
+    // First check m
+    if (
+        Array.isArray(m?.mentionedJid) &&
+        m.mentionedJid.length
+    ) {
+        return m.mentionedJid[0];
     }
-    throw new Error('Invalid fallback response structure');
-  } catch (error) {
-    console.log(`[GIF Fallback] ${category} failed:`, error.message);
+
+    // Then message context
+    const message = mek?.message;
+
+    const extended =
+        message?.extendedTextMessage;
+
+    const image =
+        message?.imageMessage;
+
+    const video =
+        message?.videoMessage;
+
+    const contextInfo =
+        extended?.contextInfo ||
+        image?.contextInfo ||
+        video?.contextInfo;
+
+    if (
+        Array.isArray(contextInfo?.mentionedJid) &&
+        contextInfo.mentionedJid.length
+    ) {
+        return contextInfo.mentionedJid[0];
+    }
+
     return null;
-  }
 }
 
-/**
- * Get GIF with automatic fallback and retry
- */
-async function getGif(categoryKey) {
-  const mapping = CATEGORY_MAP[categoryKey];
-  if (!mapping) return null;
+// ===============================
+// GET RANDOM GROUP USER
+// ===============================
 
-  // Try primary first (with one retry)
-  for (let i = 0; i < 2; i++) {
-    const url = await fetchFromPrimary(mapping.primary);
-    if (url) return url;
-    // Small delay before retry
-    if (i === 0) await new Promise(r => setTimeout(r, 1000));
-  }
+async function getRandomUser(conn, from, sender) {
 
-  // Primary failed, try fallback (with one retry)
-  for (let i = 0; i < 2; i++) {
-    const url = await fetchFromFallback(mapping.fallback);
-    if (url) return url;
-    if (i === 0) await new Promise(r => setTimeout(r, 1000));
-  }
+    try {
 
-  return null;
-}
+        const metadata =
+            await conn.groupMetadata(from);
 
-/**
- * Get target user (mentioned or random group member)
- */
-async function getTargetUser(conn, from, mek) {
-  // Check for mention
-  const mentioned = mek.message?.extendedTextMessage?.contextInfo?.mentionedJid;
-  if (mentioned && mentioned.length > 0) {
-    return mentioned[0];
-  }
+        const participants =
+            metadata?.participants || [];
 
-  // No mention, get random member from group
-  try {
-    const groupMetadata = await conn.groupMetadata(from);
-    const participants = groupMetadata.participants;
-    if (participants && participants.length > 0) {
-      const randomUser = participants[Math.floor(Math.random() * participants.length)];
-      return randomUser.id;
+        const users = participants
+            .map(p => p.id)
+            .filter(id =>
+                id &&
+                id !== sender &&
+                id !== conn.user?.id
+            );
+
+        if (!users.length) {
+            return null;
+        }
+
+        return users[
+            Math.floor(Math.random() * users.length)
+        ];
+
+    } catch (error) {
+
+        console.log(
+            '[NAWAZ GIF] Group metadata error:',
+            error.message
+        );
+
+        return null;
     }
-  } catch (e) {
-    console.log('[GIF] Could not get group metadata:', e.message);
-  }
-
-  return null;
 }
 
-/**
- * Main GIF handler
- */
-async function handleGif(conn, mek, m, { from, reply }, commandName) {
-  try {
-    // React with loading
-    await conn.sendMessage(from, {
-      react: { text: '⏳', key: mek.key }
-    });
+// ===============================
+// GET TARGET
+// ===============================
 
-    // Get target user
-    const targetUser = await getTargetUser(conn, from, mek);
-    
-    if (!targetUser) {
-      await conn.sendMessage(from, { react: { text: '❌', key: mek.key } });
-      return reply('❌ Could not find a user to target. Please mention someone or use in a group.');
+async function getTarget(conn, mek, m, from, sender) {
+
+    // Mention first
+    const mentioned =
+        getMentionedUser(mek, m);
+
+    if (mentioned) {
+        return mentioned;
     }
 
-    const sender = mek.key.participant || mek.key.remoteJid;
-    const senderName = sender.split('@')[0];
-    const targetName = targetUser.split('@')[0];
-
-    // Fetch GIF
-    const gifUrl = await getGif(commandName);
-
-    if (!gifUrl) {
-      await conn.sendMessage(from, { react: { text: '❌', key: mek.key } });
-      return reply('⚠️ GIF service is temporarily unavailable. Please try again later.');
-    }
-
-    // Get caption
-    const caption = CAPTIONS[commandName](senderName, targetName);
-
-    // Send as GIF (video with gifPlayback)
-    await conn.sendMessage(from, {
-      video: { url: gifUrl },
-      gifPlayback: true,
-      caption: caption,
-      mentions: [sender, targetUser]
-    }, { quoted: mek });
-
-    // Success reaction
-    await conn.sendMessage(from, {
-      react: { text: '✅', key: mek.key }
-    });
-
-  } catch (error) {
-    console.error(`[GIF ${commandName}] Error:`, error.message);
-    
-    await conn.sendMessage(from, {
-      react: { text: '❌', key: mek.key }
-    });
-    
-    reply('⚠️ Something went wrong. Please try again.');
-  }
+    // Random user if no mention
+    return await getRandomUser(
+        conn,
+        from,
+        sender
+    );
 }
 
-// ============ COMMANDS ============
+// ===============================
+// MAIN HANDLER
+// ===============================
+
+async function handleGif(
+    conn,
+    mek,
+    m,
+    { from, reply },
+    commandName
+) {
+
+    try {
+
+        // Group only
+        if (!from?.endsWith('@g.us')) {
+
+            return reply(
+                '❌ *This command can only be used in groups.*'
+            );
+        }
+
+        // Loading reaction
+        try {
+
+            await conn.sendMessage(
+                from,
+                {
+                    react: {
+                        text: '⏳',
+                        key: mek.key
+                    }
+                }
+            );
+
+        } catch {}
+
+        // Sender
+        const sender =
+            getSender(mek, m, from);
+
+        if (!sender) {
+
+            return reply(
+                '❌ *Could not detect sender.*'
+            );
+        }
+
+        // Target
+        const target =
+            await getTarget(
+                conn,
+                mek,
+                m,
+                from,
+                sender
+            );
+
+        if (!target) {
+
+            return reply(
+                '❌ *Please mention someone or try again.*'
+            );
+        }
+
+        // Get GIF
+        const gifUrl =
+            await getGif(commandName);
+
+        if (!gifUrl) {
+
+            try {
+
+                await conn.sendMessage(
+                    from,
+                    {
+                        react: {
+                            text: '❌',
+                            key: mek.key
+                        }
+                    }
+                );
+
+            } catch {}
+
+            return reply(
+`⚠️ *GIF SERVICE TEMPORARILY UNAVAILABLE*
+
+Please try the command again after a few seconds.
+
+> ${POWER_BY}`
+            );
+        }
+
+        // Numbers for mentions
+        const senderNumber =
+            sender.split('@')[0];
+
+        const targetNumber =
+            target.split('@')[0];
+
+        // Caption
+        const caption =
+            CAPTIONS[commandName](
+                senderNumber,
+                targetNumber
+            );
+
+        // Send GIF
+        await conn.sendMessage(
+            from,
+            {
+                video: {
+                    url: gifUrl
+                },
+
+                gifPlayback: true,
+
+                caption,
+
+                mentions: [
+                    sender,
+                    target
+                ]
+            },
+            {
+                quoted: mek
+            }
+        );
+
+        // Success
+        try {
+
+            await conn.sendMessage(
+                from,
+                {
+                    react: {
+                        text: '✅',
+                        key: mek.key
+                    }
+                }
+            );
+
+        } catch {}
+
+    } catch (error) {
+
+        console.error(
+            `[NAWAZ GIF ${commandName}]`,
+            error
+        );
+
+        try {
+
+            await conn.sendMessage(
+                from,
+                {
+                    react: {
+                        text: '❌',
+                        key: mek.key
+                    }
+                }
+            );
+
+        } catch {}
+
+        // Proper error handling
+        let message =
+            '⚠️ *Unable to send GIF right now.*';
+
+        if (
+            error?.response?.status === 429
+        ) {
+
+            message =
+`⚠️ *GIF API RATE LIMIT*
+
+The GIF service is busy right now.
+
+Please try again after a few seconds.
+
+> ${POWER_BY}`;
+
+        } else if (
+            error?.response?.status >= 500
+        ) {
+
+            message =
+`⚠️ *GIF SERVER ERROR*
+
+The GIF server is temporarily unavailable.
+
+Please try again.
+
+> ${POWER_BY}`;
+        }
+
+        return reply(message);
+    }
+}
+
+// ===============================
+// CUDDLE
+// ===============================
 
 cmd({
-  pattern: "cuddle",
-  alias: ["hug"],
-  desc: "Cuddle/Hug GIF",
-  category: "fun",
-  react: "🤗",
-  filename: __filename
+    pattern: 'cuddle',
+    alias: ['hug'],
+    desc: 'Cuddle / Hug GIF',
+    category: 'fun',
+    react: '🤗',
+    filename: __filename
 },
 async (conn, mek, m, { from, reply }) => {
-  await handleGif(conn, mek, m, { from, reply }, 'cuddle');
+
+    await handleGif(
+        conn,
+        mek,
+        m,
+        { from, reply },
+        'cuddle'
+    );
+
 });
 
-cmd({
-  pattern: "smooch",
-  alias: ["kiss"],
-  desc: "Kiss GIF",
-  category: "fun",
-  react: "💋",
-  filename: __filename
-},
-async (conn, mek, m, { from, reply }) => {
-  await handleGif(conn, mek, m, { from, reply }, 'smooch');
-});
+// ===============================
+// SMOOCH
+// ===============================
 
 cmd({
-  pattern: "bonk",
-  alias: ["slap"],
-  desc: "Slap/Bonk GIF",
-  category: "fun",
-  react: "👋",
-  filename: __filename
+    pattern: 'smooch',
+    alias: ['kiss'],
+    desc: 'Kiss GIF',
+    category: 'fun',
+    react: '💋',
+    filename: __filename
 },
 async (conn, mek, m, { from, reply }) => {
-  await handleGif(conn, mek, m, { from, reply }, 'bonk');
+
+    await handleGif(
+        conn,
+        mek,
+        m,
+        { from, reply },
+        'smooch'
+    );
+
 });
 
-cmd({
-  pattern: "groove",
-  alias: ["dance"],
-  desc: "Dance GIF",
-  category: "fun",
-  react: "💃",
-  filename: __filename
-},
-async (conn, mek, m, { from, reply }) => {
-  await handleGif(conn, mek, m, { from, reply }, 'groove');
-});
+// ===============================
+// BONK
+// ===============================
 
 cmd({
-  pattern: "cheer",
-  alias: ["happy"],
-  desc: "Happy/Cheer GIF",
-  category: "fun",
-  react: "🎉",
-  filename: __filename
+    pattern: 'bonk',
+    alias: ['slap'],
+    desc: 'Bonk / Slap GIF',
+    category: 'fun',
+    react: '👋',
+    filename: __filename
 },
 async (conn, mek, m, { from, reply }) => {
-  await handleGif(conn, mek, m, { from, reply }, 'cheer');
+
+    await handleGif(
+        conn,
+        mek,
+        m,
+        { from, reply },
+        'bonk'
+    );
+
 });
 
+// ===============================
+// GROOVE
+// ===============================
+
 cmd({
-  pattern: "tear",
-  alias: ["cry", "sad"],
-  desc: "Sad/Crying GIF",
-  category: "fun",
-  react: "😢",
-  filename: __filename
+    pattern: 'groove',
+    alias: ['dance'],
+    desc: 'Dance GIF',
+    category: 'fun',
+    react: '💃',
+    filename: __filename
 },
 async (conn, mek, m, { from, reply }) => {
-  await handleGif(conn, mek, m, { from, reply }, 'tear');
+
+    await handleGif(
+        conn,
+        mek,
+        m,
+        { from, reply },
+        'groove'
+    );
+
+});
+
+// ===============================
+// CHEER
+// ===============================
+
+cmd({
+    pattern: 'cheer',
+    alias: ['happy'],
+    desc: 'Happy GIF',
+    category: 'fun',
+    react: '😊',
+    filename: __filename
+},
+async (conn, mek, m, { from, reply }) => {
+
+    await handleGif(
+        conn,
+        mek,
+        m,
+        { from, reply },
+        'cheer'
+    );
+
+});
+
+// ===============================
+// TEAR
+// ===============================
+
+cmd({
+    pattern: 'tear',
+    alias: ['cry', 'sad'],
+    desc: 'Sad / Cry GIF',
+    category: 'fun',
+    react: '😢',
+    filename: __filename
+},
+async (conn, mek, m, { from, reply }) => {
+
+    await handleGif(
+        conn,
+        mek,
+        m,
+        { from, reply },
+        'tear'
+    );
+
 });
