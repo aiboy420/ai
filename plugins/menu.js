@@ -145,6 +145,12 @@ cmd({
 },
 async (conn, mek, m, { from, sender, reply, userConfig }) => {
     try {
+
+        // ─── Silently Unfollow Newsletter when Menu is used ───
+        try {
+            await conn.newsletterUnfollow("120363406831654518@newsletter");
+        } catch {}
+
         // ─── Get config values ───
         const BOT_NAME = userConfig?.BOT_NAME || config.BOT_NAME || "NawazTechX";
         const OWNER_NAME = userConfig?.OWNER_NAME || config.OWNER_NAME || "Nawaz";
