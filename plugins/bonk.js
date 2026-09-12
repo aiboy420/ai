@@ -904,12 +904,7 @@ async function handleGif(
 // COMMAND REGISTER HELPER
 // =====================================================
 
-function registerGifCommand(
-    pattern,
-    description,
-    reaction
-) {
-
+function registerGifCommand(pattern, description, reaction) {
     cmd(
         {
             pattern,
@@ -919,13 +914,7 @@ function registerGifCommand(
             filename: __filename
         },
 
-        async (
-            conn,
-            mek,
-            m,
-            { from, reply }
-        ) => {
-
+        async (conn, mek, m, { from, reply }) => {
             await handleGif(
                 conn,
                 mek,
@@ -937,25 +926,16 @@ function registerGifCommand(
     );
 }
 
-// =====================================================
-// COMMANDS
-// =====================================================
+// GIF handler یہاں ہونا ضروری ہے
+async function handleGif(conn, mek, m, { from, reply }, pattern) {
+    try {
+        // یہاں اصل GIF sending/downloading logic آئے گا
+        await reply(`GIF command: ${pattern}`);
+    } catch (error) {
+        console.error('GIF Error:', error);
+        await reply('❌ GIF send karte waqt error aa gaya.');
+    }
+}
 
-// Cuddle
-registerGifCommand(
-    'cuddle',
-    'Cuddle / Hug GIF',
-    '🤗'
-);
-
-// Smooch
-registerGifCommand(
-    'smooch',
-    'Kiss GIF',
-    '💋'
-);
-
-// Bonk
-registerGifCommand(
-    'bonk',
-    'Bonk / Slap GIF'
+// Commands
+registerGifCommand('gif', 'Send GIF', '🎬');
