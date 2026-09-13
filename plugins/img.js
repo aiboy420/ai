@@ -3,10 +3,10 @@ import sharp from 'sharp';
 import { cmd } from '../command.js';
 
 cmd({
-    pattern: 'name',
+    pattern: 'img',
     alias: ['write', 'namepic'],
     desc: 'Write a name on a random nature image',
-    category: 'nawaztool',
+    category: 'fun',
     react: '🖼️',
     filename: __filename
 }, async (conn, mek, m, { from, args, reply }) => {
