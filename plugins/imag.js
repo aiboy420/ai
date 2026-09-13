@@ -1,4 +1,4 @@
-// name-image.js - NAWAZ MD Name Image Command
+// imag.js - NAWAZ MD Image Name Command
 // Powered By NAWAZ MD
 
 import { fileURLToPath } from 'url';
@@ -10,216 +10,243 @@ import sharp from 'sharp';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// ============ NATURE CATEGORIES ============
+// ============ NATURE BACKGROUNDS ============
 
-const NATURE_CATEGORIES = [
-  'mountain',
-  'river',
-  'ocean',
-  'lake',
-  'waterfall',
-  'forest',
-  'beach',
-  'valley'
+const BACKGROUNDS = [
+    'mountain-landscape',
+    'mountain-scenery',
+    'river-landscape',
+    'river-mountains',
+    'lake-landscape',
+    'ocean-landscape',
+    'sea-sunset',
+    'waterfall-landscape',
+    'forest-landscape',
+    'valley-landscape',
+    'nature-landscape',
+    'sunset-landscape',
+    'snow-mountains',
+    'green-valley',
+    'beautiful-landscape'
 ];
 
 // ============ GET RANDOM IMAGE ============
 
-async function getRandomNatureImage() {
-  const category =
-    NATURE_CATEGORIES[
-      Math.floor(Math.random() * NATURE_CATEGORIES.length)
-    ];
+async function getRandomImage() {
 
-  const lock = Math.floor(Math.random() * 999999);
+    const category =
+        BACKGROUNDS[
+            Math.floor(Math.random() * BACKGROUNDS.length)
+        ];
 
-  const url =
-    `https://loremflickr.com/1280/720/${category}?lock=${lock}`;
+    const lock = Math.floor(Math.random() * 999999);
 
-  const response = await axios.get(url, {
-    responseType: 'arraybuffer',
-    timeout: 20000
-  });
+    const url =
+        `https://loremflickr.com/1280/720/${category}?lock=${lock}`;
 
-  return Buffer.from(response.data);
+    const response = await axios.get(url, {
+        responseType: 'arraybuffer',
+        timeout: 20000
+    });
+
+    return Buffer.from(response.data);
 }
 
 // ============ ESCAPE TEXT ============
 
 function escapeXml(text) {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
 }
 
-// ============ CREATE NAME IMAGE ============
+// ============ CREATE IMAGE ============
 
-async function createNameImage(imageBuffer, name) {
+async function createImage(imageBuffer, name) {
 
-  const safeName = escapeXml(name);
+    const safeName = escapeXml(name);
 
-  const svg = `
-  <svg width="1280" height="720">
+    let fontSize = 92;
 
-    <defs>
+    if (name.length > 18) fontSize = 78;
+    if (name.length > 25) fontSize = 66;
+    if (name.length > 32) fontSize = 54;
 
-      <linearGradient
-        id="dark"
-        x1="0"
-        y1="0"
-        x2="0"
-        y2="1">
+    const svg = `
+    <svg width="1280" height="720">
 
-        <stop
-          offset="0%"
-          stop-color="black"
-          stop-opacity="0.05"/>
+        <defs>
 
-        <stop
-          offset="100%"
-          stop-color="black"
-          stop-opacity="0.60"/>
+            <linearGradient
+                id="overlay"
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1">
 
-      </linearGradient>
+                <stop
+                    offset="0%"
+                    stop-color="black"
+                    stop-opacity="0.02"/>
 
-      <filter
-        id="shadow"
-        x="-50%"
-        y="-50%"
-        width="200%"
-        height="200%">
+                <stop
+                    offset="100%"
+                    stop-color="black"
+                    stop-opacity="0.55"/>
 
-        <feDropShadow
-          dx="0"
-          dy="6"
-          stdDeviation="6"
-          flood-color="black"
-          flood-opacity="0.8"/>
+            </linearGradient>
 
-      </filter>
+            <filter
+                id="shadow"
+                x="-50%"
+                y="-50%"
+                width="200%"
+                height="200%">
 
-    </defs>
+                <feDropShadow
+                    dx="0"
+                    dy="6"
+                    stdDeviation="7"
+                    flood-color="black"
+                    flood-opacity="0.85"/>
 
-    <rect
-      width="1280"
-      height="720"
-      fill="url(#dark)"/>
+            </filter>
 
-    <text
-      x="640"
-      y="390"
-      text-anchor="middle"
-      dominant-baseline="middle"
-      font-family="Arial, sans-serif"
-      font-size="92"
-      font-weight="700"
-      fill="white"
-      stroke="black"
-      stroke-width="3"
-      paint-order="stroke"
-      filter="url(#shadow)">
+        </defs>
 
-      ${safeName}
+        <rect
+            width="1280"
+            height="720"
+            fill="url(#overlay)"/>
 
-    </text>
+        <text
+            x="640"
+            y="390"
+            text-anchor="middle"
+            dominant-baseline="middle"
 
-  </svg>
-  `;
+            font-family="Georgia, 'Times New Roman', serif"
+            font-size="${fontSize}px"
+            font-weight="700"
+            font-style="italic"
 
-  return await sharp(imageBuffer)
-    .resize(1280, 720, {
-      fit: 'cover'
-    })
-    .composite([
-      {
-        input: Buffer.from(svg),
-        top: 0,
-        left: 0
-      }
-    ])
-    .jpeg({
-      quality: 92
-    })
-    .toBuffer();
+            letter-spacing="2"
+
+            fill="white"
+            stroke="black"
+            stroke-width="3"
+            paint-order="stroke"
+
+            filter="url(#shadow)">
+
+            ${safeName}
+
+        </text>
+
+    </svg>
+    `;
+
+    return await sharp(imageBuffer)
+        .resize(1280, 720, {
+            fit: 'cover'
+        })
+        .composite([
+            {
+                input: Buffer.from(svg),
+                top: 0,
+                left: 0
+            }
+        ])
+        .jpeg({
+            quality: 92
+        })
+        .toBuffer();
 }
 
-// ============ COMMAND ============
+// ============ IMAG COMMAND ============
 
 cmd({
-  pattern: "imag",
-  alias: ["namepic", "write"],
-  desc: "Write a name on a random nature image",
-  category: "fun",
-  react: "🖼️",
-  filename: __filename
+    pattern: "imag",
+    alias: ["image", "img"],
+    desc: "Create a random nature image with name",
+    category: "fun",
+    react: "🖼️",
+    filename: __filename
 },
-async (conn, mek, m, { from, reply }) => {
 
-  try {
+async (conn, mek, m, { from, reply, args }) => {
 
-    const name = m.text?.trim();
+    try {
 
-    if (!name) {
-      return reply(
-        `❌ Please provide a name.\n\nExample:\n.name Nawaz MD`
-      );
+        // ONLY text after .imag
+        // .imag Nawaz MD
+        // => Nawaz MD
+        const name = Array.isArray(args)
+            ? args.join(' ').trim()
+            : '';
+
+        if (!name) {
+            return reply(
+                `❌ Please provide a name.\n\nExample:\n.imag Nawaz MD`
+            );
+        }
+
+        await conn.sendMessage(from, {
+            react: {
+                text: "⏳",
+                key: mek.key
+            }
+        });
+
+        // Random landscape image
+        const image = await getRandomImage();
+
+        // Add stylish name
+        const finalImage = await createImage(
+            image,
+            name
+        );
+
+        // Send image
+        await conn.sendMessage(
+            from,
+            {
+                image: finalImage,
+                caption: `✨ ${name}`
+            },
+            {
+                quoted: mek
+            }
+        );
+
+        await conn.sendMessage(from, {
+            react: {
+                text: "✅",
+                key: mek.key
+            }
+        });
+
+    } catch (error) {
+
+        console.error(
+            "[IMAG] Error:",
+            error.message
+        );
+
+        await conn.sendMessage(from, {
+            react: {
+                text: "❌",
+                key: mek.key
+            }
+        });
+
+        return reply(
+            "⚠️ Image could not be created. Please try again."
+        );
     }
-
-    await conn.sendMessage(from, {
-      react: {
-        text: "⏳",
-        key: mek.key
-      }
-    });
-
-    // Get random nature image
-    const image = await getRandomNatureImage();
-
-    // Write name on image
-    const finalImage = await createNameImage(
-      image,
-      name
-    );
-
-    // Send image
-    await conn.sendMessage(
-      from,
-      {
-        image: finalImage,
-        caption: `✨ ${name}`
-      },
-      {
-        quoted: mek
-      }
-    );
-
-    await conn.sendMessage(from, {
-      react: {
-        text: "✅",
-        key: mek.key
-      }
-    });
-
-  } catch (error) {
-
-    console.error(
-      "[NAME IMAGE] Error:",
-      error.message
-    );
-
-    await conn.sendMessage(from, {
-      react: {
-        text: "❌",
-        key: mek.key
-      }
-    });
-
-    reply(
-      "⚠️ Could not create the image. Please try again."
-    );
-  }
 
 });
