@@ -1,4 +1,4 @@
-// imag.js
+// imag.js - NAWAZ MD Image Command
 
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -36,7 +36,7 @@ const imageUrls = [
     'https://files.catbox.moe/yfce44.jpg'
 ];
 
-// ============ RANDOM URL ============
+// ============ RANDOM IMAGE ============
 
 function getRandomImageUrl() {
     return imageUrls[
@@ -70,20 +70,20 @@ function escapeXml(text) {
         .replace(/'/g, '&apos;');
 }
 
-// ============ WRITE NAME ON IMAGE ============
+// ============ CREATE DP IMAGE ============
 
 async function createNameImage(imageBuffer, name) {
 
     const safeName = escapeXml(name);
 
-    let fontSize = 92;
+    let fontSize = 100;
 
-    if (name.length > 18) fontSize = 78;
-    if (name.length > 25) fontSize = 66;
-    if (name.length > 32) fontSize = 54;
+    if (name.length > 18) fontSize = 84;
+    if (name.length > 25) fontSize = 70;
+    if (name.length > 32) fontSize = 58;
 
     const svg = `
-    <svg width="1280" height="720">
+    <svg width="1080" height="1080">
 
         <defs>
 
@@ -96,18 +96,19 @@ async function createNameImage(imageBuffer, name) {
 
                 <feDropShadow
                     dx="0"
-                    dy="6"
-                    stdDeviation="7"
+                    dy="7"
+                    stdDeviation="8"
                     flood-color="black"
-                    flood-opacity="0.85"/>
+                    flood-opacity="0.9"/>
 
             </filter>
 
         </defs>
 
         <text
-            x="640"
-            y="390"
+            x="540"
+            y="570"
+
             text-anchor="middle"
             dominant-baseline="middle"
 
@@ -119,8 +120,9 @@ async function createNameImage(imageBuffer, name) {
             letter-spacing="2"
 
             fill="white"
+
             stroke="black"
-            stroke-width="3"
+            stroke-width="4"
             paint-order="stroke"
 
             filter="url(#shadow)">
@@ -133,8 +135,9 @@ async function createNameImage(imageBuffer, name) {
     `;
 
     return await sharp(imageBuffer)
-        .resize(1280, 720, {
-            fit: 'cover'
+        .resize(1080, 1080, {
+            fit: 'cover',
+            position: 'centre'
         })
         .composite([
             {
@@ -144,7 +147,7 @@ async function createNameImage(imageBuffer, name) {
             }
         ])
         .jpeg({
-            quality: 92
+            quality: 95
         })
         .toBuffer();
 }
@@ -154,7 +157,7 @@ async function createNameImage(imageBuffer, name) {
 cmd({
     pattern: "imag",
     alias: ["image", "img"],
-    desc: "Create image with name",
+    desc: "Create DP image with name",
     category: "fun",
     react: "🖼️",
     filename: __filename
@@ -164,6 +167,7 @@ async (conn, mek, m, { from, reply, args }) => {
 
     try {
 
+        // Get only text after .imag
         const name = Array.isArray(args)
             ? args.join(' ').trim()
             : '';
@@ -174,6 +178,7 @@ async (conn, mek, m, { from, reply, args }) => {
             );
         }
 
+        // Loading reaction
         await conn.sendMessage(from, {
             react: {
                 text: "⏳",
@@ -181,21 +186,21 @@ async (conn, mek, m, { from, reply, args }) => {
             }
         });
 
-        // Random image from your URLs
+        // Pick random URL
         const randomUrl = getRandomImageUrl();
 
-        // Download image
+        // Download random image
         const originalImage =
             await downloadImage(randomUrl);
 
-        // Write name on image
+        // Make square DP + add name
         const finalImage =
             await createNameImage(
                 originalImage,
                 name
             );
 
-        // Send image
+        // Send final DP
         await conn.sendMessage(
             from,
             {
@@ -207,6 +212,7 @@ async (conn, mek, m, { from, reply, args }) => {
             }
         );
 
+        // Success reaction
         await conn.sendMessage(from, {
             react: {
                 text: "✅",
