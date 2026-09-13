@@ -1,4 +1,4 @@
-// imag.js - NAWAZ MD Image Name Command
+// imag.js - NAWAZ MD Random Name Image
 // Powered By NAWAZ MD
 
 import { fileURLToPath } from 'url';
@@ -6,50 +6,107 @@ import { dirname } from 'path';
 import { cmd } from '../command.js';
 import axios from 'axios';
 import sharp from 'sharp';
+import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// ============ NATURE BACKGROUNDS ============
+// ============ LANDSCAPE IMAGES ============
 
 const BACKGROUNDS = [
     'mountain-landscape',
     'mountain-scenery',
+    'snow-mountain',
     'river-landscape',
     'river-mountains',
     'lake-landscape',
     'ocean-landscape',
     'sea-sunset',
     'waterfall-landscape',
-    'forest-landscape',
     'valley-landscape',
     'nature-landscape',
     'sunset-landscape',
-    'snow-mountains',
     'green-valley',
-    'beautiful-landscape'
+    'beautiful-landscape',
+    'scenic-landscape',
+    'countryside-landscape'
 ];
 
-// ============ GET RANDOM IMAGE ============
+// ============ USED IMAGE CACHE ============
+
+const usedImages = new Set();
+const MAX_USED_IMAGES = 100;
+
+// ============ RANDOM IMAGE ============
 
 async function getRandomImage() {
 
-    const category =
-        BACKGROUNDS[
-            Math.floor(Math.random() * BACKGROUNDS.length)
-        ];
+    for (let attempt = 0; attempt < 15; attempt++) {
 
-    const lock = Math.floor(Math.random() * 999999);
+        try {
 
-    const url =
-        `https://loremflickr.com/1280/720/${category}?lock=${lock}`;
+            const category =
+                BACKGROUNDS[
+                    Math.floor(
+                        Math.random() * BACKGROUNDS.length
+                    )
+                ];
 
-    const response = await axios.get(url, {
-        responseType: 'arraybuffer',
-        timeout: 20000
-    });
+            const random =
+                Date.now() +
+                Math.floor(Math.random() * 999999);
 
-    return Buffer.from(response.data);
+            const url =
+                `https://loremflickr.com/1280/720/${category}?random=${random}`;
+
+            const response = await axios.get(url, {
+                responseType: 'arraybuffer',
+                timeout: 20000,
+                headers: {
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                }
+            });
+
+            const image = Buffer.from(response.data);
+
+            // Check actual image hash
+            const hash = crypto
+                .createHash('sha256')
+                .update(image)
+                .digest('hex');
+
+            // Don't send same image again
+            if (usedImages.has(hash)) {
+                console.log(
+                    '[IMAG] Duplicate image - trying again'
+                );
+                continue;
+            }
+
+            usedImages.add(hash);
+
+            // Keep cache limited
+            if (usedImages.size > MAX_USED_IMAGES) {
+
+                const first =
+                    usedImages.values().next().value;
+
+                usedImages.delete(first);
+            }
+
+            return image;
+
+        } catch (error) {
+
+            console.log(
+                `[IMAG] Attempt ${attempt + 1}:`,
+                error.message
+            );
+        }
+    }
+
+    throw new Error('Could not get a new image');
 }
 
 // ============ ESCAPE TEXT ============
@@ -64,9 +121,9 @@ function escapeXml(text) {
         .replace(/'/g, '&apos;');
 }
 
-// ============ CREATE IMAGE ============
+// ============ CREATE NAME IMAGE ============
 
-async function createImage(imageBuffer, name) {
+async function createNameImage(imageBuffer, name) {
 
     const safeName = escapeXml(name);
 
@@ -133,10 +190,10 @@ async function createImage(imageBuffer, name) {
             font-size="${fontSize}px"
             font-weight="700"
             font-style="italic"
-
             letter-spacing="2"
 
             fill="white"
+
             stroke="black"
             stroke-width="3"
             paint-order="stroke"
@@ -167,12 +224,12 @@ async function createImage(imageBuffer, name) {
         .toBuffer();
 }
 
-// ============ IMAG COMMAND ============
+// ============ .IMAG COMMAND ============
 
 cmd({
     pattern: "imag",
     alias: ["image", "img"],
-    desc: "Create a random nature image with name",
+    desc: "Create a random landscape image with name",
     category: "fun",
     react: "🖼️",
     filename: __filename
@@ -183,8 +240,6 @@ async (conn, mek, m, { from, reply, args }) => {
     try {
 
         // ONLY text after .imag
-        // .imag Nawaz MD
-        // => Nawaz MD
         const name = Array.isArray(args)
             ? args.join(' ').trim()
             : '';
@@ -202,21 +257,21 @@ async (conn, mek, m, { from, reply, args }) => {
             }
         });
 
-        // Random landscape image
+        // Get new random landscape
         const image = await getRandomImage();
 
         // Add stylish name
-        const finalImage = await createImage(
-            image,
-            name
-        );
+        const finalImage =
+            await createNameImage(image, name);
 
-        // Send image
+        // Send final image
         await conn.sendMessage(
             from,
             {
                 image: finalImage,
-                caption: `✨ ${name}`
+
+                caption:
+                    `⚡ 𝑷𝒐𝒘𝒆𝒓𝒆𝒅 𝑩𝒚 𝑵𝑨𝑾𝑨𝒁 𝑴𝑫`
             },
             {
                 quoted: mek
@@ -233,7 +288,7 @@ async (conn, mek, m, { from, reply, args }) => {
     } catch (error) {
 
         console.error(
-            "[IMAG] Error:",
+            '[IMAG] Error:',
             error.message
         );
 
@@ -245,8 +300,7 @@ async (conn, mek, m, { from, reply, args }) => {
         });
 
         return reply(
-            "⚠️ Image could not be created. Please try again."
+            '⚠️ Could not create a new image. Please try again.'
         );
     }
-
 });
