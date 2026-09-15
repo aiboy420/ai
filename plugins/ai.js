@@ -10,8 +10,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // ============ CONFIG ============
+// Multiple AI APIs - Fallback System
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "YOUR_GEMINI_API_KEY";
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "YOUR_GROQ_API_KEY";
-const AI_MODEL = "llama-3.3-70b-versatile";
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "YOUR_OPENROUTER_API_KEY";
+const TOGETHER_API_KEY = process.env.TOGETHER_API_KEY || "YOUR_TOGETHER_API_KEY";
+const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY || "YOUR_HUGGINGFACE_API_KEY";
+
+const SYSTEM_PROMPT =
+  'You are a helpful WhatsApp assistant for NAWAZ MD bot. Keep responses short, friendly, and clear. Use simple language.';
+
 const MAX_HISTORY = 10;
 
 // Conversation history
@@ -31,77 +39,269 @@ function isAIEnabled(chatId) {
   return aiStatus.get(chatId) === true;
 }
 
-// ============ HELPER: CALL GROQ API ============
-async function askAI(userMessage, chatId) {
-  try {
-    if (!chatHistory.has(chatId)) {
-      chatHistory.set(chatId, []);
+// ============ API 1: GOOGLE GEMINI ============
+async function callGemini(userMessage, history) {
+  const contents = [
+    {
+      role: 'user',
+      parts: [{ text: SYSTEM_PROMPT }]
+    },
+    {
+      role: 'model',
+      parts: [{ text: 'Okay, I will follow those instructions.' }]
+    },
+    ...history.slice(-MAX_HISTORY),
+    {
+      role: 'user',
+      parts: [{ text: userMessage }]
     }
+  ];
 
-    const history = chatHistory.get(chatId);
-
-    const messages = [
-      {
-        role: 'system',
-        content:
-          'You are a helpful WhatsApp assistant for NAWAZ MD bot. Keep responses short, friendly, and clear. Use simple language.'
-      },
-      ...history.slice(-MAX_HISTORY),
-      {
-        role: 'user',
-        content: userMessage
-      }
-    ];
-
-    const response = await axios({
-      method: 'post',
-      url: 'https://api.groq.com/openai/v1/chat/completions',
-      headers: {
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      data: {
-        model: AI_MODEL,
-        messages: messages,
+  const response = await axios({
+    method: 'post',
+    url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    data: {
+      contents,
+      generationConfig: {
         temperature: 0.7,
-        max_tokens: 1024,
-        top_p: 0.9
-      },
-      timeout: 30000
-    });
+        maxOutputTokens: 1024,
+        topP: 0.9
+      }
+    },
+    timeout: 30000
+  });
 
-    const aiResponse = response.data.choices[0].message.content;
+  return response.data.candidates[0].content.parts[0].text;
+}
 
-    // Save conversation
-    history.push({
+// ============ API 2: GROQ ============
+async function callGroq(userMessage, history) {
+  const messages = [
+    {
+      role: 'system',
+      content: SYSTEM_PROMPT
+    },
+    ...history.slice(-MAX_HISTORY),
+    {
       role: 'user',
       content: userMessage
-    });
-
-    history.push({
-      role: 'assistant',
-      content: aiResponse
-    });
-
-    // Keep history limited
-    while (history.length > MAX_HISTORY * 2) {
-      history.shift();
     }
+  ];
 
-    return aiResponse;
+  const response = await axios({
+    method: 'post',
+    url: 'https://api.groq.com/openai/v1/chat/completions',
+    headers: {
+      'Authorization': `Bearer ${GROQ_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    data: {
+      model: 'llama-3.3-70b-versatile',
+      messages,
+      temperature: 0.7,
+      max_tokens: 1024,
+      top_p: 0.9
+    },
+    timeout: 30000
+  });
 
-  } catch (error) {
-    console.log("[AI Chat] Error:", error.message);
+  return response.data.choices[0].message.content;
+}
 
-    if (error.response) {
-      console.log("[AI Chat] Response:", error.response.data);
+// ============ API 3: OPENROUTER ============
+async function callOpenRouter(userMessage, history) {
+  const messages = [
+    {
+      role: 'system',
+      content: SYSTEM_PROMPT
+    },
+    ...history.slice(-MAX_HISTORY),
+    {
+      role: 'user',
+      content: userMessage
     }
+  ];
 
-    return null;
+  const response = await axios({
+    method: 'post',
+    url: 'https://openrouter.ai/api/v1/chat/completions',
+    headers: {
+      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://github.com/nawazmd',
+      'X-Title': 'NAWAZ MD AI'
+    },
+    data: {
+      model: 'meta-llama/llama-3.1-8b-instruct:free',
+      messages,
+      temperature: 0.7,
+      max_tokens: 1024
+    },
+    timeout: 30000
+  });
+
+  return response.data.choices[0].message.content;
+}
+
+// ============ API 4: TOGETHER AI ============
+async function callTogether(userMessage, history) {
+  const messages = [
+    {
+      role: 'system',
+      content: SYSTEM_PROMPT
+    },
+    ...history.slice(-MAX_HISTORY),
+    {
+      role: 'user',
+      content: userMessage
+    }
+  ];
+
+  const response = await axios({
+    method: 'post',
+    url: 'https://api.together.xyz/v1/chat/completions',
+    headers: {
+      'Authorization': `Bearer ${TOGETHER_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    data: {
+      model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
+      messages,
+      temperature: 0.7,
+      max_tokens: 1024
+    },
+    timeout: 30000
+  });
+
+  return response.data.choices[0].message.content;
+}
+
+// ============ API 5: HUGGING FACE ============
+async function callHuggingFace(userMessage, history) {
+  const messages = [
+    {
+      role: 'system',
+      content: SYSTEM_PROMPT
+    },
+    ...history.slice(-MAX_HISTORY),
+    {
+      role: 'user',
+      content: userMessage
+    }
+  ];
+
+  const response = await axios({
+    method: 'post',
+    url: 'https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-3B-Instruct/v1/chat/completions',
+    headers: {
+      'Authorization': `Bearer ${HUGGINGFACE_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    data: {
+      model: 'meta-llama/Llama-3.2-3B-Instruct',
+      messages,
+      temperature: 0.7,
+      max_tokens: 1024
+    },
+    timeout: 30000
+  });
+
+  return response.data.choices[0].message.content;
+}
+
+// ============ FALLBACK SYSTEM ============
+const AI_PROVIDERS = [
+  {
+    name: 'Gemini',
+    fn: callGemini
+  },
+  {
+    name: 'Groq',
+    fn: callGroq
+  },
+  {
+    name: 'OpenRouter',
+    fn: callOpenRouter
+  },
+  {
+    name: 'Together',
+    fn: callTogether
+  },
+  {
+    name: 'HuggingFace',
+    fn: callHuggingFace
   }
+];
+
+// ============ HELPER: CALL AI WITH FALLBACK ============
+async function askAI(userMessage, chatId) {
+  if (!chatHistory.has(chatId)) {
+    chatHistory.set(chatId, []);
+  }
+
+  const history = chatHistory.get(chatId);
+
+  for (const provider of AI_PROVIDERS) {
+    try {
+      console.log(`[AI Chat] Trying provider: ${provider.name}`);
+
+      const aiResponse = await provider.fn(userMessage, history);
+
+      if (
+        !aiResponse ||
+        typeof aiResponse !== 'string' ||
+        aiResponse.trim() === ''
+      ) {
+        throw new Error('Empty response');
+      }
+
+      console.log(`[AI Chat] Success with: ${provider.name}`);
+
+      history.push({
+        role: 'user',
+        content: userMessage,
+        parts: [{ text: userMessage }]
+      });
+
+      history.push({
+        role: 'assistant',
+        content: aiResponse,
+        parts: [{ text: aiResponse }]
+      });
+
+      while (history.length > MAX_HISTORY * 2) {
+        history.shift();
+      }
+
+      return aiResponse;
+
+    } catch (error) {
+      console.log(
+        `[AI Chat] ${provider.name} failed:`,
+        error.message
+      );
+
+      if (error.response) {
+        console.log(
+          `[AI Chat] ${provider.name} response:`,
+          error.response.data
+        );
+      }
+
+      // Try next provider
+      continue;
+    }
+  }
+
+  console.log('[AI Chat] All providers failed');
+  return null;
 }
 
 // ============ COMMAND: .AION ============
+// ONLY OWNER CAN TURN AI ON
 cmd({
   pattern: "aion",
   alias: ["ai_on", "aistart"],
@@ -111,8 +311,13 @@ cmd({
   filename: __filename,
   use: '.aion'
 },
-async (conn, mek, m, { from, reply }) => {
+async (conn, mek, m, { from, isCreator, reply }) => {
   try {
+    // Owner only
+    if (!isCreator) {
+      return reply("❌ Only Owner can turn AI Chat ON.");
+    }
+
     const chatId = getChatId(from);
 
     aiStatus.set(chatId, true);
@@ -125,32 +330,15 @@ async (conn, mek, m, { from, reply }) => {
     });
 
     return reply(
-`🤖 *NAWAZ MD AI CHATBOT*
+`🤖 *NAWAZ MD AI CHAT*
 
-✅ *AI CHATBOT IS NOW ON*
+✅ *AI CHAT ON*
 
-━━━━━━━━━━━━━━━━
-📌 *HOW TO USE:*
-
-Type:
-
+📌 Use:
 *.ai* [your message]
 
-Then send your question/message and
-AI will reply to you.
-
-*Example:*
-
-.ai What is artificial intelligence?
-
-.ai Write a poem for me
-
-.ai Tell me a joke
-
-.ai Explain JavaScript
-
-━━━━━━━━━━━━━━━━
-⚡ *Powered By NAWAZ MD*`
+Example:
+.ai Hello`
     );
 
   } catch (error) {
@@ -160,6 +348,7 @@ AI will reply to you.
 });
 
 // ============ COMMAND: .AIOFF ============
+// ONLY OWNER CAN TURN AI OFF
 cmd({
   pattern: "aioff",
   alias: ["ai_off", "aistop"],
@@ -169,8 +358,13 @@ cmd({
   filename: __filename,
   use: '.aioff'
 },
-async (conn, mek, m, { from, reply }) => {
+async (conn, mek, m, { from, isCreator, reply }) => {
   try {
+    // Owner only
+    if (!isCreator) {
+      return reply("❌ Only Owner can turn AI Chat OFF.");
+    }
+
     const chatId = getChatId(from);
 
     aiStatus.set(chatId, false);
@@ -183,17 +377,9 @@ async (conn, mek, m, { from, reply }) => {
     });
 
     return reply(
-`🔕 *NAWAZ MD AI CHATBOT*
+`🔕 *NAWAZ MD AI CHAT*
 
-❌ *AI CHATBOT IS NOW OFF*
-
-━━━━━━━━━━━━━━━━
-📌 AI Chat has been disabled.
-
-Use *.aion* to turn AI Chat ON again.
-
-━━━━━━━━━━━━━━━━
-⚡ *Powered By NAWAZ MD*`
+❌ *AI CHAT OFF*`
     );
 
   } catch (error) {
@@ -203,6 +389,7 @@ Use *.aion* to turn AI Chat ON again.
 });
 
 // ============ COMMAND: .AI ============
+// ANYONE CAN USE AI WHEN OWNER HAS TURNED IT ON
 cmd({
   pattern: "ai",
   alias: ["gpt", "ask", "chat", "bot"],
@@ -212,39 +399,35 @@ cmd({
   filename: __filename,
   use: '.ai [question]'
 },
-async (conn, mek, m, { from, q, reply, prefix, command }) => {
+async (conn, mek, m, { from, q, reply }) => {
   try {
     const chatId = getChatId(from);
 
-    // AI must be ON first
+    // AI must be ON
     if (!isAIEnabled(chatId)) {
       return reply(
-`🔕 *NAWAZ MD AI CHATBOT*
+`🔕 *NAWAZ MD AI CHAT*
 
 ❌ *AI CHAT IS OFF*
 
-Use *.aion* to turn AI Chat ON.`
+Owner must use *.aion* first.`
       );
     }
 
     // No question
     if (!q) {
       return reply(
-`🤖 *NAWAZ MD AI CHATBOT*
+`🤖 *NAWAZ MD AI CHAT*
 
-📌 *HOW TO USE:*
-
+📌 Use:
 *.ai* [your message]
 
-*Example:*
-
-.ai What is AI?
-
-.ai Tell me a joke`
+Example:
+.ai Hello`
       );
     }
 
-    // Loading reaction
+    // Loading
     await conn.sendMessage(from, {
       react: {
         text: "⏳",
@@ -252,9 +435,9 @@ Use *.aion* to turn AI Chat ON.`
       }
     });
 
+    // Try all APIs
     const response = await askAI(q, chatId);
 
-    // API error
     if (!response) {
       await conn.sendMessage(from, {
         react: {
@@ -270,7 +453,7 @@ Use *.aion* to turn AI Chat ON.`
 
     // AI response
     const caption =
-`🤖 *NAWAZ MD AI CHATBOT*
+`🤖 *NAWAZ MD AI CHAT*
 
 ${response}
 
@@ -287,7 +470,7 @@ ${response}
       }
     );
 
-    // Success reaction
+    // Success
     await conn.sendMessage(from, {
       react: {
         text: "✅",
