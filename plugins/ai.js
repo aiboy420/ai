@@ -14,7 +14,7 @@ cmd(
         alias: ['ask', 'chatgpt'],
         react: '🤖',
         desc: 'NAWAZ MD AI',
-        category: 'ai',
+        category: 'NAWAZAI',
         filename: __filename
     },
 
@@ -25,14 +25,14 @@ cmd(
             const aiMessage =
 `𝙽𝙰𝚆𝙰𝚉 𝙼𝙳 𝙰𝙸
 
-👋 Hello! I'm NAWAZ MD AI.
+👋 Hello! I'm 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳 AI.
 
 𝗠𝗲𝗻𝘂 𝗳𝗼𝗿 𝗮𝗹𝗹 𝗰𝗼𝗺𝗺𝗮𝗻𝗱𝘀
 Type .menu
 
 🔗 𝗖𝗼𝗻𝗻𝗲𝗰𝘁 𝗬𝗼𝘂𝗿 𝗕𝗼𝘁
 Tap below to connect your bot
-https://nawazmd.vercel.app
+nawazmd.vercel.app
 
 𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗯𝘆 𝗡𝗮𝘄𝗮𝘇 𝗠𝗗`;
 
