@@ -3,7 +3,6 @@ import { cmd } from '../command.js';
 import axios from 'axios';
 
 const __filename = fileURLToPath(import.meta.url);
-const API_BASE = "https://xjawadtech.vercel.app";
 
 function getVideoId(url) {
     const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
@@ -67,49 +66,31 @@ cmd({
 > *© ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳*`
         }, { quoted: mek });
 
-        let audioUrl = null;
-        let success = false;
+        // 🎧 NEW AUDIO API
+        const apiUrl = `https://arslan-apis-v2.vercel.app/download/ytmp4?url=${encodeURIComponent(url)}`;
 
-        const audioAPIs = [
-            `${API_BASE}/yta6?url=${encodeURIComponent(url)}`,
-            `${API_BASE}/yta7?url=${encodeURIComponent(url)}`,
-            `${API_BASE}/yta1?url=${encodeURIComponent(url)}`,
-            `${API_BASE}/yta2?url=${encodeURIComponent(url)}`,
-            `${API_BASE}/yta3?url=${encodeURIComponent(url)}`,
-            `${API_BASE}/yta4?url=${encodeURIComponent(url)}`,
-            `${API_BASE}/yta5?url=${encodeURIComponent(url)}`
-        ];
+        const response = await axios.get(apiUrl, { timeout: 60000 });
 
-        for (const apiUrl of audioAPIs) {
-            if (!success) {
-                try {
-                    const response = await axios.get(apiUrl, { timeout: 15000 });
-
-                    audioUrl = response.data?.status &&
-                        response.data?.download?.url
-                        ? response.data.download.url
-                        : null;
-
-                    if (audioUrl) {
-                        await conn.sendMessage(from, {
-                            audio: { url: audioUrl },
-                            mimetype: "audio/mpeg",
-                            fileName: `${vid.title}.mp3`,
-                            ptt: false
-                        }, { quoted: mek });
-
-                        success = true;
-                        break;
-                    }
-                } catch (e) {
-                    continue;
-                }
-            }
+        if (
+            !response.data ||
+            !response.data.status ||
+            !response.data.result ||
+            !response.data.result.download ||
+            !response.data.result.download.url
+        ) {
+            return reply("❌ Audio Not Generated");
         }
 
-        if (!success) {
-            return reply("❌ All download sources failed! Try again later.");
-        }
+        const audioUrl = response.data.result.download.url;
+        const meta = response.data.result.metadata;
+        const quality = response.data.result.download.quality || "128kbps";
+
+        await conn.sendMessage(from, {
+            audio: { url: audioUrl },
+            mimetype: "audio/mpeg",
+            fileName: `${meta?.title || vid.title || "song"}.mp3`,
+            ptt: false
+        }, { quoted: mek });
 
         await conn.sendMessage(from, {
             react: { text: '✅', key: m.key }
@@ -209,67 +190,64 @@ cmd({
                 });
 
                 if (selected === "1" || selected === "2") {
-                    const type = selected === "1" ? "mp3" : "mp4";
 
-                    if (type === "mp3") {
-                        let audioUrl = null;
-                        let success = false;
+                    // ============================================
+                    // AUDIO - NEW API
+                    // ============================================
+                    if (selected === "1") {
 
-                        const audioAPIs = [
-                            `${API_BASE}/yta6?url=${encodeURIComponent(vid.url)}`,
-                            `${API_BASE}/yta7?url=${encodeURIComponent(vid.url)}`,
-                            `${API_BASE}/yta1?url=${encodeURIComponent(vid.url)}`,
-                            `${API_BASE}/yta2?url=${encodeURIComponent(vid.url)}`,
-                            `${API_BASE}/yta3?url=${encodeURIComponent(vid.url)}`,
-                            `${API_BASE}/yta4?url=${encodeURIComponent(vid.url)}`,
-                            `${API_BASE}/yta5?url=${encodeURIComponent(vid.url)}`
-                        ];
+                        const apiUrl =
+                            `https://arslan-apis-v2.vercel.app/download/ytmp4?url=${encodeURIComponent(vid.url)}`;
 
-                        for (const apiUrl of audioAPIs) {
-                            if (!success) {
-                                try {
-                                    const response = await axios.get(apiUrl, {
-                                        timeout: 15000
-                                    });
+                        try {
+                            const response = await axios.get(apiUrl, {
+                                timeout: 60000
+                            });
 
-                                    audioUrl =
-                                        response.data?.status &&
-                                        response.data?.download?.url
-                                            ? response.data.download.url
-                                            : null;
-
-                                    if (audioUrl) {
-                                        await conn.sendMessage(from, {
-                                            audio: { url: audioUrl },
-                                            mimetype: "audio/mpeg",
-                                            fileName: `${vid.title}.mp3`,
-                                            ptt: false
-                                        }, { quoted: received });
-
-                                        success = true;
-                                        break;
-                                    }
-                                } catch (e) {
-                                    continue;
-                                }
+                            if (
+                                !response.data ||
+                                !response.data.status ||
+                                !response.data.result ||
+                                !response.data.result.download ||
+                                !response.data.result.download.url
+                            ) {
+                                return await conn.sendMessage(from, {
+                                    text: "❌ Audio Not Generated"
+                                }, { quoted: received });
                             }
-                        }
 
-                        if (!success) {
+                            const audioUrl =
+                                response.data.result.download.url;
+
+                            const meta =
+                                response.data.result.metadata;
+
+                            await conn.sendMessage(from, {
+                                audio: { url: audioUrl },
+                                mimetype: "audio/mpeg",
+                                fileName: `${meta?.title || vid.title || "song"}.mp3`,
+                                ptt: false
+                            }, { quoted: received });
+
+                        } catch (e) {
                             return await conn.sendMessage(from, {
-                                text: "❌ All audio sources failed! Try again later."
+                                text: "❌ Audio Download Failed! Try again later."
                             }, { quoted: received });
                         }
 
+                    // ============================================
+                    // VIDEO - SAME OLD API
+                    // ============================================
                     } else {
+
                         let videoUrl = null;
                         let success = false;
 
                         const videoAPIs = [
-                            `${API_BASE}/ytv1?url=${encodeURIComponent(vid.url)}`,
-                            `${API_BASE}/ytv2?url=${encodeURIComponent(vid.url)}`,
-                            `${API_BASE}/ytv3?url=${encodeURIComponent(vid.url)}`,
-                            `${API_BASE}/ytv4?url=${encodeURIComponent(vid.url)}`
+                            `https://xjawadtech.vercel.app/ytv1?url=${encodeURIComponent(vid.url)}`,
+                            `https://xjawadtech.vercel.app/ytv2?url=${encodeURIComponent(vid.url)}`,
+                            `https://xjawadtech.vercel.app/ytv3?url=${encodeURIComponent(vid.url)}`,
+                            `https://xjawadtech.vercel.app/ytv4?url=${encodeURIComponent(vid.url)}`
                         ];
 
                         for (const apiUrl of videoAPIs) {
