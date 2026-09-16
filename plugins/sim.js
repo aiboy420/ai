@@ -1,8 +1,11 @@
-// sim.js - CommonJS Version
+// sim.js - ESM Version
 // NAWAZ MD - SIM INFORMATION
 
-const { cmd } = require('../inconnuboy');
-const axios = require('axios');
+import { fileURLToPath } from 'url';
+import { cmd } from '../command.js';
+import axios from 'axios';
+
+const __filename = fileURLToPath(import.meta.url);
 
 cmd({
     pattern: "sim",
@@ -11,14 +14,17 @@ cmd({
     category: "tools",
     react: "💎",
     filename: __filename
-}, async (conn, m, store, { from, q, reply }) => {
+}, async (conn, mek, m, { from, q, reply }) => {
 
     try {
 
         if (!q) {
-            return reply("📱 Provide a number!\n\nExample: .sim 0303xxxxxxx");
+            return reply(
+                "📱 Provide a number!\nExample: .sim 0303xxxxxxx"
+            );
         }
 
+        // Normalize number
         let raw = q.replace(/\D/g, '');
 
         if (raw.startsWith('92')) {
@@ -32,17 +38,20 @@ cmd({
         const api =
             `https://fam-official.serv00.net/api/database.php?number=${raw}`;
 
+        // Searching reaction
         await conn.sendMessage(from, {
             react: {
                 text: "🔍",
-                key: m.key
+                key: mek.key
             }
         });
 
+        // API request
         const { data: resp } = await axios.get(api, {
             timeout: 20000
         });
 
+        // No record
         if (
             !resp?.success ||
             !resp?.data?.records?.length
@@ -51,7 +60,7 @@ cmd({
             await conn.sendMessage(from, {
                 react: {
                     text: "❌",
-                    key: m.key
+                    key: mek.key
                 }
             });
 
@@ -72,10 +81,9 @@ cmd({
         const phone =
             record.phone || raw;
 
-        const text = `
-┏━━━━━━━━━━━━━━━━━━━┓
-   ⭐ 𝐒𝐈𝐌 𝐃𝐄𝐓𝐀𝐈𝐋𝐒 ⭐
-┗━━━━━━━━━━━━━━━━━━━┛
+        // Result
+        const result = `
+⭐ 𝐒𝐈𝐌 𝐃𝐄𝐓𝐀𝐈𝐋𝐒 ⭐
 
 👤 NAME: ${name}
 🪪 CNIC: ${cnic}
@@ -84,23 +92,27 @@ cmd({
 
 ✨ ᴘᴏᴡᴇʀᴇᴅ ʙʏ ɴᴀᴡᴀᴢ ᴍᴅ`;
 
-        await reply(text);
+        await reply(result);
 
+        // Success reaction
         await conn.sendMessage(from, {
             react: {
                 text: "✅",
-                key: m.key
+                key: mek.key
             }
         });
 
-    } catch (e) {
+    } catch (error) {
 
-        console.error("SIM CMD ERROR:", e);
+        console.error(
+            "SIM CMD ERROR:",
+            error
+        );
 
         await conn.sendMessage(from, {
             react: {
                 text: "❌",
-                key: m.key
+                key: mek.key
             }
         });
 
