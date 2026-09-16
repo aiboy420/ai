@@ -5,19 +5,15 @@ import { fileURLToPath } from 'url';
 import { cmd } from '../command.js';
 import axios from 'axios';
 import FormData from 'form-data';
-import {
-    downloadContentFromMessage
-} from '@whiskeysockets/baileys';
+import { downloadContentFromMessage } from '@whiskeysockets/baileys';
 
 const __filename = fileURLToPath(import.meta.url);
-
 
 // ==========================================
 // FREE AI VIDEO API
 // ==========================================
 
 const freevideo = {
-
     api: {
         base: "https://www.freeaivideos.org",
 
@@ -36,7 +32,6 @@ const freevideo = {
         "accept": "*/*"
     },
 
-
     // ======================================
     // GENERATE VIDEO REQUEST
     // ======================================
@@ -50,9 +45,7 @@ const freevideo = {
             prompt || "animate this image"
         );
 
-
         if (imageBuffer) {
-
             form.append(
                 "initialFrame",
                 imageBuffer,
@@ -61,35 +54,26 @@ const freevideo = {
                     contentType: "image/jpeg"
                 }
             );
-
         }
-
 
         try {
 
             const res = await axios.post(
-
                 `${freevideo.api.base}${freevideo.api.endpoint.generate}`,
-
                 form,
-
                 {
                     headers: {
                         ...freevideo.headers,
                         ...form.getHeaders()
                     },
-
                     timeout: 60000
                 }
-
             );
-
 
             return {
                 success: true,
                 request_id: res.data?.request_id
             };
-
 
         } catch (err) {
 
@@ -101,9 +85,7 @@ const freevideo = {
             };
 
         }
-
     },
-
 
     // ======================================
     // CHECK VIDEO STATUS
@@ -119,7 +101,6 @@ const freevideo = {
             `${freevideo.api.endpoint.request(requestId)}`;
 
         const startTime = Date.now();
-
 
         return new Promise((resolve) => {
 
@@ -138,7 +119,6 @@ const freevideo = {
 
                 }
 
-
                 try {
 
                     const res = await axios.get(
@@ -150,7 +130,6 @@ const freevideo = {
                         }
                     );
 
-
                     if (res.data?.video_url) {
 
                         return resolve({
@@ -159,7 +138,6 @@ const freevideo = {
                         });
 
                     }
-
 
                 } catch (err) {
 
@@ -170,20 +148,15 @@ const freevideo = {
 
                 }
 
-
                 setTimeout(loop, 5000);
-
             };
-
 
             loop();
 
         });
-
     }
 
 };
-
 
 // ==========================================
 // AI VIDEO COMMAND
@@ -229,7 +202,6 @@ cmd({
         const mime =
             (q.msg || q).mimetype || "";
 
-
         // ==================================
         // CHECK INPUT
         // ==================================
@@ -252,19 +224,16 @@ Reply to an image with:
 
         }
 
-
         // ==================================
         // DOWNLOAD IMAGE
         // ==================================
 
         let imageBuffer = null;
 
-
         if (mime.includes("image")) {
 
             const messageType =
                 mime.split("/")[0];
-
 
             const stream =
                 await downloadContentFromMessage(
@@ -272,22 +241,15 @@ Reply to an image with:
                     messageType
                 );
 
-
             const chunks = [];
 
-
             for await (const chunk of stream) {
-
                 chunks.push(chunk);
-
             }
-
 
             imageBuffer =
                 Buffer.concat(chunks);
-
         }
-
 
         // ==================================
         // PROMPT
@@ -297,15 +259,13 @@ Reply to an image with:
             text ||
             "animate this image";
 
-
         await reply(
-            `🎬 *AI Video Generator*
+            `🎬 *𝘼𝙄 𝙑𝙞𝙙𝙚𝙤 𝙂𝙚𝙣𝙚𝙧𝙖𝙩𝙤𝙧*
 
-📝 Prompt: ${prompt}
+📝 *𝙋𝙧𝙤𝙢𝙥𝙩:* ${prompt}
 
-⏳ Requesting server...`
+⏳ *𝙍𝙚𝙦𝙪𝙚𝙨𝙩𝙞𝙣𝙜 𝙨𝙚𝙧𝙫𝙚𝙧...*`
         );
-
 
         // ==================================
         // SEND GENERATION REQUEST
@@ -317,14 +277,13 @@ Reply to an image with:
                 imageBuffer
             });
 
-
         if (
             !generateResult.success ||
             !generateResult.request_id
         ) {
 
             return reply(
-                `❌ Error: ${
+                `❌ *𝙀𝙧𝙧𝙤𝙧:* ${
                     generateResult.error ||
                     "Failed to get request ID"
                 }`
@@ -332,20 +291,18 @@ Reply to an image with:
 
         }
 
-
         // ==================================
         // REQUEST ACCEPTED
         // ==================================
 
         await reply(
-            `✅ *Request Accepted!*
+            `✅ *𝙍𝙚𝙦𝙪𝙚𝙨𝙩 𝘼𝙘𝙘𝙚𝙥𝙩𝙚𝙙!*
 
-🆔 ID: ${generateResult.request_id}
+🆔 *𝙄𝘿:* ${generateResult.request_id}
 
-⏳ Processing...
-Please wait.`
+⏳ *𝙋𝙧𝙤𝙘𝙚𝙨𝙨𝙞𝙣𝙜...*
+𝙋𝙡𝙚𝙖𝙨𝙚 𝙬𝙖𝙞𝙩.`
         );
-
 
         // ==================================
         // WAIT FOR VIDEO
@@ -356,32 +313,28 @@ Please wait.`
                 generateResult.request_id
             );
 
-
         if (!pollResult.success) {
 
             return reply(
-                `❌ Error: ${pollResult.error}`
+                `❌ *𝙀𝙧𝙧𝙤𝙧:* ${pollResult.error}`
             );
 
         }
-
 
         // ==================================
         // SEND VIDEO
         // ==================================
 
         const caption =
-            `🎬 *AI Video Generated Successfully!*
+            `🎬 *𝘼𝙄 𝙑𝙞𝙙𝙚𝙤 𝙂𝙚𝙣𝙚𝙧𝙖𝙩𝙚𝙙*
+*𝙎𝙪𝙘𝙘𝙚𝙨𝙨𝙛𝙪𝙡𝙡𝙮!*
 
-📝 *Prompt:* ${prompt}
+📝 *𝙋𝙧𝙤𝙢𝙥𝙩:* ${prompt}
 
-© Powered By Nawaz MD`;
-
+© *𝙋𝙤𝙬𝙚𝙧𝙚𝙙 𝘽𝙮 𝙉𝙖𝙬𝙖𝙯 𝙈𝘿*`;
 
         await conn.sendMessage(
-
             from,
-
             {
                 video: {
                     url:
@@ -392,13 +345,10 @@ Please wait.`
 
                 mimetype: "video/mp4"
             },
-
             {
                 quoted: mek
             }
-
         );
-
 
     } catch (err) {
 
@@ -408,7 +358,7 @@ Please wait.`
         );
 
         reply(
-            `❌ Error: ${err.message}`
+            `❌ *𝙀𝙧𝙧𝙤𝙧:* ${err.message}`
         );
 
     }
