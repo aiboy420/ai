@@ -3,7 +3,7 @@ import { cmd } from '../command.js';
 import { getContextInfo } from './new.js';
 
 cmd({
-    pattern: 'movie1',
+    pattern: 'movie',
     alias: ['film'],
     desc: 'Fetch detailed information about a movie',
     category: 'utility',
