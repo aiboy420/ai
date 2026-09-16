@@ -1,19 +1,23 @@
 // aivideo.js - ESM Version
-// NAWAZ MD - AI VIDEO GENERATOR
+// NAWAZ MD - AI VIDEO + GPT
 
 import { fileURLToPath } from 'url';
 import { cmd } from '../command.js';
 import axios from 'axios';
 import FormData from 'form-data';
-import { downloadContentFromMessage } from '@whiskeysockets/baileys';
+import {
+    downloadContentFromMessage
+} from '@whiskeysockets/baileys';
 
 const __filename = fileURLToPath(import.meta.url);
+
 
 // ==========================================
 // FREE AI VIDEO API
 // ==========================================
 
 const freevideo = {
+
     api: {
         base: "https://www.freeaivideos.org",
 
@@ -32,8 +36,9 @@ const freevideo = {
         "accept": "*/*"
     },
 
+
     // ======================================
-    // GENERATE VIDEO REQUEST
+    // GENERATE VIDEO
     // ======================================
 
     generate: async ({ prompt, imageBuffer = null } = {}) => {
@@ -46,6 +51,7 @@ const freevideo = {
         );
 
         if (imageBuffer) {
+
             form.append(
                 "initialFrame",
                 imageBuffer,
@@ -54,6 +60,7 @@ const freevideo = {
                     contentType: "image/jpeg"
                 }
             );
+
         }
 
         try {
@@ -66,6 +73,7 @@ const freevideo = {
                         ...freevideo.headers,
                         ...form.getHeaders()
                     },
+
                     timeout: 60000
                 }
             );
@@ -85,7 +93,9 @@ const freevideo = {
             };
 
         }
+
     },
+
 
     // ======================================
     // CHECK VIDEO STATUS
@@ -126,6 +136,7 @@ const freevideo = {
                         {
                             headers:
                                 freevideo.headers,
+
                             timeout: 30000
                         }
                     );
@@ -149,14 +160,17 @@ const freevideo = {
                 }
 
                 setTimeout(loop, 5000);
+
             };
 
             loop();
 
         });
+
     }
 
 };
+
 
 // ==========================================
 // AI VIDEO COMMAND
@@ -202,6 +216,7 @@ cmd({
         const mime =
             (q.msg || q).mimetype || "";
 
+
         // ==================================
         // CHECK INPUT
         // ==================================
@@ -223,6 +238,7 @@ Reply to an image with:
             );
 
         }
+
 
         // ==================================
         // DOWNLOAD IMAGE
@@ -249,7 +265,9 @@ Reply to an image with:
 
             imageBuffer =
                 Buffer.concat(chunks);
+
         }
+
 
         // ==================================
         // PROMPT
@@ -259,13 +277,20 @@ Reply to an image with:
             text ||
             "animate this image";
 
+
+        // ==================================
+        // MESSAGE 1 ONLY
+        // PROCESSING
+        // ==================================
+
         await reply(
-            `🎬 *𝘼𝙄 𝙑𝙞𝙙𝙚𝙤 𝙂𝙚𝙣𝙚𝙧𝙖𝙩𝙤𝙧*
+            `🎬 *𝘼𝙄 𝙑𝙞𝙙𝙚𝙤*
 
-📝 *𝙋𝙧𝙤𝙢𝙥𝙩:* ${prompt}
+⏳ *𝙋𝙧𝙤𝙘𝙚𝙨𝙨𝙞𝙣𝙜, 𝙥𝙡𝙚𝙖𝙨𝙚 𝙬𝙖𝙞𝙩...*
 
-⏳ *𝙍𝙚𝙦𝙪𝙚𝙨𝙩𝙞𝙣𝙜 𝙨𝙚𝙧𝙫𝙚𝙧...*`
+📝 *𝙋𝙧𝙤𝙢𝙥𝙩:* ${prompt}`
         );
+
 
         // ==================================
         // SEND GENERATION REQUEST
@@ -277,13 +302,14 @@ Reply to an image with:
                 imageBuffer
             });
 
+
         if (
             !generateResult.success ||
             !generateResult.request_id
         ) {
 
             return reply(
-                `❌ *𝙀𝙧𝙧𝙤𝙧:* ${
+                `❌ Error: ${
                     generateResult.error ||
                     "Failed to get request ID"
                 }`
@@ -291,18 +317,6 @@ Reply to an image with:
 
         }
 
-        // ==================================
-        // REQUEST ACCEPTED
-        // ==================================
-
-        await reply(
-            `✅ *𝙍𝙚𝙦𝙪𝙚𝙨𝙩 𝘼𝙘𝙘𝙚𝙥𝙩𝙚𝙙!*
-
-🆔 *𝙄𝘿:* ${generateResult.request_id}
-
-⏳ *𝙋𝙧𝙤𝙘𝙚𝙨𝙨𝙞𝙣𝙜...*
-𝙋𝙡𝙚𝙖𝙨𝙚 𝙬𝙖𝙞𝙩.`
-        );
 
         // ==================================
         // WAIT FOR VIDEO
@@ -313,42 +327,75 @@ Reply to an image with:
                 generateResult.request_id
             );
 
+
         if (!pollResult.success) {
 
             return reply(
-                `❌ *𝙀𝙧𝙧𝙤𝙧:* ${pollResult.error}`
+                `❌ Error: ${pollResult.error}`
             );
 
         }
 
+
         // ==================================
+        // DOWNLOAD VIDEO
+        // ==================================
+
+        const videoUrl =
+            pollResult.data.video_url;
+
+        const videoResponse =
+            await axios.get(
+                videoUrl,
+                {
+                    responseType: "arraybuffer",
+
+                    timeout: 120000,
+
+                    maxContentLength:
+                        Infinity,
+
+                    maxBodyLength:
+                        Infinity
+                }
+            );
+
+        const videoBuffer =
+            Buffer.from(
+                videoResponse.data
+            );
+
+
+        // ==================================
+        // MESSAGE 2 ONLY
         // SEND VIDEO
         // ==================================
 
         const caption =
             `🎬 *𝘼𝙄 𝙑𝙞𝙙𝙚𝙤 𝙂𝙚𝙣𝙚𝙧𝙖𝙩𝙚𝙙*
-*𝙎𝙪𝙘𝙘𝙚𝙨𝙨𝙛𝙪𝙡𝙡𝙮!*
 
-📝 *𝙋𝙧𝙤𝙢𝙥𝙩:* ${prompt}
+✅ *𝙎𝙪𝙘𝙘𝙚𝙨𝙨𝙛𝙪𝙡𝙡𝙮!*
 
 © *𝙋𝙤𝙬𝙚𝙧𝙚𝙙 𝘽𝙮 𝙉𝙖𝙬𝙖𝙯 𝙈𝘿*`;
+
 
         await conn.sendMessage(
             from,
             {
-                video: {
-                    url:
-                        pollResult.data.video_url
-                },
+                video: videoBuffer,
 
                 caption,
 
-                mimetype: "video/mp4"
+                mimetype: "video/mp4",
+
+                fileName:
+                    "Nawaz-MD-AI-Video.mp4"
             },
             {
                 quoted: mek
             }
         );
+
 
     } catch (err) {
 
@@ -357,8 +404,118 @@ Reply to an image with:
             err
         );
 
-        reply(
-            `❌ *𝙀𝙧𝙧𝙤𝙧:* ${err.message}`
+        return reply(
+            `❌ Error: ${err.message}`
+        );
+
+    }
+
+});
+
+
+// ==========================================
+// GPT AI COMMAND
+// ==========================================
+
+cmd({
+
+    pattern: "gpt",
+
+    alias: [
+        "gptai"
+    ],
+
+    react: "🤖",
+
+    desc: "Chat with GPT AI",
+
+    category: "ai",
+
+    filename: __filename
+
+}, async (
+    conn,
+    mek,
+    m,
+    {
+        from,
+        reply,
+        text
+    }
+) => {
+
+    try {
+
+        if (!text) {
+
+            return reply(
+                "🤖 Please provide a question."
+            );
+
+        }
+
+
+        // ==================================
+        // SAME LANGUAGE RESPONSE
+        // ==================================
+
+        const prompt =
+            `Answer the user in the same language as the user's question.
+
+Important:
+- Detect the language of the user's question.
+- Reply in that exact language.
+- Do not translate the answer into English unless the user asks in English.
+- If the user asks in Urdu, reply in Urdu.
+- If the user asks in Hindi, reply in Hindi.
+- If the user asks in Arabic, reply in Arabic.
+- If the user asks in English, reply in English.
+- If the user mixes languages, use the dominant language.
+
+User Question:
+${text}`;
+
+
+        // ==================================
+        // GPT API
+        // ==================================
+
+        const res = await axios.get(
+
+            `https://api.yupra.my.id/api/ai/gpt5?text=${encodeURIComponent(prompt)}`,
+
+            {
+                timeout: 60000
+            }
+
+        );
+
+
+        const result =
+            res.data?.result;
+
+
+        if (!result) {
+
+            return reply(
+                "❌ Failed to get AI response."
+            );
+
+        }
+
+
+        await reply(result);
+
+
+    } catch (err) {
+
+        console.error(
+            "GPT ERROR:",
+            err
+        );
+
+        return reply(
+            "⚠️ AI error. Please try again later."
         );
 
     }
