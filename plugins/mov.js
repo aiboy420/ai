@@ -1,18 +1,15 @@
 import axios from 'axios';
 import { cmd } from '../command.js';
-import { getContextInfo } from './new.js';
 
 cmd({
     pattern: 'movie',
     alias: ['film'],
-    desc: 'Fetch detailed information about a movie',
+    desc: 'Fetch detailed movie information from IMDb',
     category: 'utility',
-    react: '🎬',
-    filename: import.meta.url
-}, async (conn, mek, m, { from, reply, sender, args }) => {
+    react: '🎬'
+}, async (conn, mek, m, { from, reply, args }) => {
     try {
-        // Extract movie name
-        const movieName = args?.length > 0
+        const movieName = args?.length
             ? args.join(' ').trim()
             : String(m?.text || '')
                 .replace(/^[.!#$]?movie\s?/i, '')
@@ -20,12 +17,11 @@ cmd({
 
         if (!movieName) {
             return reply(
-                '📽️ Please provide the name of the movie.\n' +
-                'Example: .movie Iron Man'
+                '📽️ ᴘʟᴇᴀꜱᴇ ᴇɴᴛᴇʀ ᴛʜᴇ ɴᴀᴍᴇ ᴏꜰ ᴛʜᴇ ᴍᴏᴠɪᴇ.\n' +
+                'ᴇxᴀᴍᴘʟᴇ: .movie Iron Man'
             );
         }
 
-        // IMDb API
         const apiUrl =
             `https://apis.davidcyriltech.my.id/imdb?query=${encodeURIComponent(movieName)}`;
 
@@ -33,85 +29,85 @@ cmd({
             timeout: 20000
         });
 
-        if (
-            !response.data?.status ||
-            !response.data?.movie
-        ) {
+        const movie = response.data?.movie;
+
+        if (!response.data?.status || !movie) {
             return reply(
-                '🚫 Movie not found. Please check the name and try again.'
+                '🚫 ᴍᴏᴠɪᴇ ɴᴏᴛ ꜰᴏᴜɴᴅ. ᴘʟᴇᴀꜱᴇ ᴄʜᴇᴄᴋ ᴛʜᴇ ɴᴀᴍᴇ ᴀɴᴅ ᴛʀʏ ᴀɢᴀɪɴ.'
             );
         }
 
-        const movie = response.data.movie;
-
-        // Safely extract Rotten Tomatoes rating
         const ratings = Array.isArray(movie.ratings)
             ? movie.ratings
             : [];
 
         const rottenTomatoes =
-            ratings.find(r => r?.source === 'Rotten Tomatoes')?.value
-            || 'N/A';
+            ratings.find(r =>
+                r?.source?.toLowerCase() === 'rotten tomatoes'
+            )?.value || 'N/A';
 
-        // Safely format release date
-        const releaseDate = movie.released &&
-            !isNaN(new Date(movie.released).getTime())
-                ? new Date(movie.released).toLocaleDateString()
-                : 'N/A';
+        let released = 'N/A';
 
-        // Format movie details
+        if (
+            movie.released &&
+            !Number.isNaN(new Date(movie.released).getTime())
+        ) {
+            released = new Date(movie.released)
+                .toLocaleDateString('en-GB');
+        }
+
         const caption = `
-🎬 *${movie.title || 'Unknown Title'}* (${movie.year || 'N/A'}) ${movie.rated || ''}
+🎬 *${movie.title || 'Unknown Title'}* (${movie.year || 'N/A'}) ${movie.rated || 'N/A'}
 
-⭐ *IMDb:* ${movie.imdbRating || 'N/A'}
-🍅 *Rotten Tomatoes:* ${rottenTomatoes}
-💰 *Box Office:* ${movie.boxoffice || 'N/A'}
+⭐ *ɪᴍᴅʙ:* ${movie.imdbRating || 'N/A'}
+🍅 *ʀᴏᴛᴛᴇɴ ᴛᴏᴍᴀᴛᴏᴇꜱ:* ${rottenTomatoes}
+💰 *ʙᴏx ᴏꜰꜰɪᴄᴇ:* ${movie.boxoffice || 'N/A'}
 
-📅 *Released:* ${releaseDate}
-⏳ *Runtime:* ${movie.runtime || 'N/A'}
-🎭 *Genre:* ${movie.genres || 'N/A'}
+📅 *ʀᴇʟᴇᴀꜱᴇᴅ:* ${released}
+⏳ *ʀᴜɴᴛɪᴍᴇ:* ${movie.runtime || 'N/A'}
+🎭 *ɢᴇɴʀᴇ:* ${movie.genres || 'N/A'}
 
-📝 *Plot:* ${movie.plot || 'N/A'}
+📝 *ᴘʟᴏᴛ:* ${movie.plot || 'N/A'}
 
-🎥 *Director:* ${movie.director || 'N/A'}
-✍️ *Writer:* ${movie.writer || 'N/A'}
-🌟 *Actors:* ${movie.actors || 'N/A'}
+🎥 *ᴅɪʀᴇᴄᴛᴏʀ:* ${movie.director || 'N/A'}
+✍️ *ᴡʀɪᴛᴇʀ:* ${movie.writer || 'N/A'}
+🌟 *ᴀᴄᴛᴏʀꜱ:* ${movie.actors || 'N/A'}
 
-🌍 *Country:* ${movie.country || 'N/A'}
-🗣️ *Language:* ${movie.languages || 'N/A'}
-🏆 *Awards:* ${movie.awards || 'None'}
+🌍 *ᴄᴏᴜɴᴛʀʏ:* ${movie.country || 'N/A'}
+🗣️ *ʟᴀɴɢᴜᴀɢᴇ:* ${movie.languages || 'N/A'}
+🏆 *ᴀᴡᴀʀᴅꜱ:* ${movie.awards || 'N/A'}
 
-🔗 [View on IMDb](${movie.imdbUrl || 'https://www.imdb.com/'})
+🔗 *ɪᴍᴅʙ ʟɪɴᴋ:*
+${movie.imdbUrl || 'https://www.imdb.com/'}
 
-> Power By Nawaz MD
+> ᴘᴏᴡᴇʀ ʙʏ ɴᴀᴡᴀᴢ ᴍᴅ
         `.trim();
 
-        // Movie poster
         const poster =
             movie.poster && movie.poster !== 'N/A'
                 ? movie.poster
                 : 'https://cdn.giftedtech.web.id/file/nqCsY.jpg';
 
-        // Send movie information
         await conn.sendMessage(
             from,
             {
                 image: { url: poster },
-                caption,
-                contextInfo: getContextInfo(sender)
+                caption
             },
             { quoted: mek }
         );
 
     } catch (error) {
         console.error(
-            'Movie command error:',
+            'NAWAZ-MD Movie Error:',
             error?.response?.data || error?.message || error
         );
 
         return reply(
-            '❌ Movie command failed. Please try again later.'
+            '❌ *ᴍᴏᴠɪᴇ ᴄᴏᴍᴍᴀɴᴅ ᴇʀʀᴏʀ!*\n\n' +
+            'ᴄᴏᴜʟᴅ ɴᴏᴛ ꜰᴇᴛᴄʜ ᴍᴏᴠɪᴇ ɪɴꜰᴏʀᴍᴀᴛɪᴏɴ.\n' +
+            'ᴘʟᴇᴀꜱᴇ ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ.'
         );
     }
 });
-                
+            
