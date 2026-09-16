@@ -17,7 +17,7 @@ cmd({
     pattern: "chatgpt",
 
     alias: [
-        "ask",
+        "ai",
         "gpt",
         "chatgpt"
     ],
