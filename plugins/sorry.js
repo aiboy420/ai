@@ -4,101 +4,118 @@ import { cmd } from '../command.js';
 
 const __filename = fileURLToPath(import.meta.url);
 
-cmd({
-  pattern: 'sorry',
-  desc: 'Send multiple apology messages by mention, reply, or private chat',
-  category: 'general',
-  react: '🥺',
-  filename: __filename
-}, async (conn, mek, m, { from, reply }) => {
-  try {
-    const sender = m.sender || m.key?.participant;
-
-    if (!sender) {
-      return reply('❌ Could not identify who is apologizing.');
-    }
-
+// Get target from mention, reply, or private chat
+function getTarget(m, from, sender) {
     const contextInfo =
-      m.message?.extendedTextMessage?.contextInfo ||
-      m.message?.imageMessage?.contextInfo ||
-      m.message?.videoMessage?.contextInfo ||
-      m.message?.documentMessage?.contextInfo ||
-      m.message?.stickerMessage?.contextInfo ||
-      {};
+        m.message?.extendedTextMessage?.contextInfo ||
+        m.message?.imageMessage?.contextInfo ||
+        m.message?.videoMessage?.contextInfo ||
+        m.message?.documentMessage?.contextInfo ||
+        m.message?.stickerMessage?.contextInfo ||
+        {};
 
     const mentioned = [
-      ...(m.mentionedJid || []),
-      ...(contextInfo.mentionedJid || [])
+        ...(m.mentionedJid || []),
+        ...(contextInfo.mentionedJid || [])
     ];
 
     const isGroup = from.endsWith('@g.us');
 
-    // Mentioned user gets first priority
+    // Mention gets first priority
     let target = mentioned.find(jid => jid && jid !== sender);
 
-    // If no mention, check replied message
+    // If no mention, use replied user
     if (!target && contextInfo.participant) {
-      if (contextInfo.participant !== sender) {
-        target = contextInfo.participant;
-      }
+        if (contextInfo.participant !== sender) {
+            target = contextInfo.participant;
+        }
     }
 
-    // In private chat, use the other person as target
+    // Private chat: target is the other person
     if (!target && !isGroup) {
-      target = from;
+        target = from;
     }
 
-    if (!target) {
-      return reply(
-        '🥺 Please mention someone or reply to their message.\n\n' +
-        'Example: .sorry @user\n\n' +
-        'Or reply to someone’s message with .sorry'
-      );
-    }
+    return target;
+}
 
-    const senderName = sender.split('@')[0];
-    const targetName = target.split('@')[0];
+// Different message for every command
+const sorryMessages = {
+    sorry1: `🥺 *𝗜'𝗠 𝗧𝗥𝗨𝗟𝗬 𝗦𝗢𝗥𝗥𝗬* 🥺\n\n@SENDER sincerely apologizes to @TARGET from the bottom of their heart.\n\n🙏 Please forgive me. I really didn't mean to hurt you. ❤️`,
 
-    // Mention both sender and target
-    const mentions = [...new Set([sender, target])];
+    sorry2: `💔 *𝗣𝗟𝗘𝗔𝗦𝗘 𝗙𝗢𝗥𝗚𝗜𝗩𝗘 𝗠𝗘* 💔\n\n@SENDER is truly sorry to @TARGET.\n\n🥺 I regret my mistake and sincerely ask you to forgive me. 🙏`,
 
-    const cards = [
-      `🥺 *𝗜'𝗠 𝗧𝗥𝗨𝗟𝗬 𝗦𝗢𝗥𝗥𝗬* 🥺\n\n` +
-      `@${senderName} sincerely apologizes to @${targetName} from the bottom of their heart.\n\n` +
-      `💌 *"Everyone makes mistakes. Please forgive me!"* 🙏\n\n` +
-      `Please forgive me, my friend! ❤️`,
+    sorry3: `🥹 *𝗦𝗢𝗥𝗥𝗬 𝗙𝗥𝗢𝗠 𝗠𝗬 𝗛𝗘𝗔𝗥𝗧* 🥹\n\n@SENDER wants to say sorry to @TARGET.\n\n💌 I never wanted to hurt you.\nPlease accept my sincere apology. 🙏❤️`,
 
-      `💔 *𝗣𝗟𝗘𝗔𝗦𝗘 𝗙𝗢𝗥𝗚𝗜𝗩𝗘 𝗠𝗘* 💔\n\n` +
-      `@${senderName} regrets their mistake and sincerely apologizes to @${targetName}.\n\n` +
-      `🥺 I am really sorry. Please forgive me.\n\n` +
-      `🙏 Please give me another chance, my friend.`,
+    sorry4: `🥺 *𝗢𝗡𝗖𝗘 𝗔𝗚𝗔𝗜𝗡, 𝗜'𝗠 𝗦𝗢𝗥𝗥𝗬* 🥺\n\n@SENDER sincerely apologizes to @TARGET.\n\n🙏 Please forgive me and don't be angry with me. ❤️`,
 
-      `🥹 *𝗦𝗢𝗥𝗥𝗬 𝗙𝗥𝗢𝗠 𝗠𝗬 𝗛𝗘𝗔𝗥𝗧* 🥹\n\n` +
-      `A heartfelt apology from @${senderName} to @${targetName}.\n\n` +
-      `💌 I never wanted to hurt you.\n` +
-      `Please accept my sincere apology. 🙏\n\n` +
-      `❤️ Please forgive me, my friend!`,
+    sorry5: `😔 *𝗣𝗟𝗘𝗔𝗦𝗘 𝗔𝗖𝗖𝗘𝗣𝗧 𝗠𝗬 𝗔𝗣𝗢𝗟𝗢𝗚𝗬* 😔\n\n@SENDER is saying sorry to @TARGET.\n\n🥺 I know I made a mistake. Please forgive me. 🙏`,
 
-      `🥺 *𝗢𝗡𝗖𝗘 𝗔𝗚𝗔𝗜𝗡, 𝗜'𝗠 𝗦𝗢𝗥𝗥𝗬* 🥺\n\n` +
-      `@${senderName} sincerely apologizes to @${targetName}.\n\n` +
-      `🙏 If I made a mistake, please forgive me.\n\n` +
-      `💖 *"I'm truly sorry. Please forgive me!"*\n\n` +
-      `— *PLEASE*`
-    ];
+    sorry6: `🥺 *𝗜 𝗔𝗠 𝗥𝗘𝗔𝗟𝗟𝗬 𝗦𝗢𝗥𝗥𝗬* 🥺\n\n@SENDER apologizes sincerely to @TARGET.\n\n❤️ Please don't stay upset with me. Forgive me, please. 🙏`,
 
-    for (const text of cards) {
-      await conn.sendMessage(
-        from,
-        {
-          text,
-          mentions
-        },
-        { quoted: mek }
-      );
-    }
+    sorry7: `💖 *𝗙𝗢𝗥𝗚𝗜𝗩𝗘 𝗠𝗘 𝗣𝗟𝗘𝗔𝗦𝗘* 💖\n\n@SENDER wants to apologize to @TARGET.\n\n🥹 Everyone makes mistakes. I'm genuinely sorry. 🙏`,
 
-  } catch (error) {
-    console.error('[NAWAZ-MD SORRY] Error:', error);
-    return reply('❌ Sorry command failed. Please try again.');
+    sorry8: `😔 *𝗠𝗬 𝗦𝗜𝗡𝗖𝗘𝗥𝗘 𝗔𝗣𝗢𝗟𝗢𝗚𝗬* 😔\n\n@SENDER sincerely says sorry to @TARGET.\n\n🙏 I hope you can forgive me and give me another chance. ❤️`,
+
+    sorry9: `🥹 *𝗜 𝗡𝗘𝗩𝗘𝗥 𝗪𝗔𝗡𝗧𝗘𝗗 𝗧𝗢 𝗛𝗨𝗥𝗧 𝗬𝗢𝗨* 🥹\n\n@SENDER apologizes to @TARGET.\n\n💌 I'm really sorry for my mistake. Please forgive me. 🙏`,
+
+    sorry10: `🥺 *𝗧𝗥𝗨𝗟𝗬 𝗦𝗢𝗥𝗥𝗬* 🥺\n\n@SENDER is sincerely apologizing to @TARGET.\n\n❤️ Please forgive me and accept my heartfelt apology. 🙏`
+};
+
+// Register every command separately
+for (const [pattern, template] of Object.entries(sorryMessages)) {
+
+    cmd({
+        pattern: pattern,
+        desc: `Owner Only - ${pattern} apology command`,
+        category: 'owner',
+        react: '🥺',
+        filename: __filename
+    }, async (conn, mek, m, { from, reply, isCreator }) => {
+
+        try {
+            // Owner Only
+            if (!isCreator) {
+                return;
+            }
+
+            const sender = m.sender || m.key?.participant;
+
+            if (!sender) {
+                return reply('❌ Could not identify who is apologizing.');
+            }
+
+            const target = getTarget(m, from, sender);
+
+            if (!target) {
+                return reply(
+                    '🥺 Please mention someone or reply to their message.\n\n' +
+                    `Example: .${pattern} @user`
+                );
+            }
+
+            const senderName = sender.split('@')[0];
+            const targetName = target.split('@')[0];
+
+            const text = template
+                .replace(/@SENDER/g, `@${senderName}`)
+                .replace(/@TARGET/g, `@${targetName}`);
+
+            // Send only ONE message
+            await conn.sendMessage(
+                from,
+                {
+                    text: text,
+                    mentions: [...new Set([sender, target])]
+                },
+                { quoted: mek }
+            );
+
+        } catch (error) {
+            console.error(`[NAWAZ-MD ${pattern.toUpperCase()}] Error:`, error);
+            return reply(
+                `❌ ${pattern} command failed. Please try again.`
+            );
+        }
+    });
   }
-});
