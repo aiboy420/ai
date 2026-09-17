@@ -5,89 +5,153 @@ import { cmd } from '../command.js';
 const __filename = fileURLToPath(import.meta.url);
 
 const API = 'https://gutendex.com/books/';
-const sessions = new Map();
-const cache = new Map();
 
-const getKey = (from, m) =>
-    `${from}:${m.sender || m.key?.participant || ''}`;
+const sessions = new Map();
+const pendingBooks = new Map();
+
+const PAGE_SIZE = 2500;
+const MAX_BOOK_SIZE = 12 * 1024 * 1024;
+
+function getKey(from, m) {
+    return `${from}:${m.sender || m.key?.participant || ''}`;
+}
+
+function cleanText(text) {
+    return String(text || '')
+        .replace(/\r/g, '')
+        .replace(/\u0000/g, '')
+        .trim();
+}
+
+function splitPages(text) {
+    const pages = [];
+    let current = '';
+
+    for (const paragraph of text.split(/\n\s*\n/)) {
+        const part = paragraph.trim();
+
+        if (!part) continue;
+
+        if (part.length > PAGE_SIZE) {
+            if (current) {
+                pages.push(current);
+                current = '';
+            }
+
+            for (let i = 0; i < part.length; i += PAGE_SIZE) {
+                pages.push(part.slice(i, i + PAGE_SIZE));
+            }
+
+            continue;
+        }
+
+        const combined = current
+            ? `${current}\n\n${part}`
+            : part;
+
+        if (combined.length > PAGE_SIZE) {
+            pages.push(current);
+            current = part;
+        } else {
+            current = combined;
+        }
+    }
+
+    if (current) pages.push(current);
+
+    return pages;
+}
 
 async function getBooks(query = '') {
-    const res = await axios.get(API, {
+    const response = await axios.get(API, {
         params: {
             search: query,
             page_size: 10
         },
-        timeout: 30000
+        timeout: 30000,
+        headers: {
+            'User-Agent': 'NAWAZ-MD-Novel-Reader/1.0'
+        }
     });
 
-    return res.data?.results || [];
+    return response.data?.results || [];
 }
 
 function getTextUrl(book) {
     const formats = book.formats || {};
 
-    return (
-        formats['text/plain; charset=utf-8'] ||
-        formats['text/plain; charset=us-ascii'] ||
-        formats['text/plain']
+    const entries = Object.entries(formats);
+
+    const plainText = entries.find(([type, url]) =>
+        type.toLowerCase().startsWith('text/plain') &&
+        typeof url === 'string' &&
+        /^https?:\/\//i.test(url)
     );
-}
 
-function splitPages(text, size = 2500) {
-    const pages = [];
-
-    for (let i = 0; i < text.length; i += size) {
-        pages.push(text.slice(i, i + size));
-    }
-
-    return pages;
+    return plainText?.[1] || null;
 }
 
 async function loadBook(book) {
     const url = getTextUrl(book);
 
     if (!url) {
-        throw new Error('No readable text available');
+        throw new Error(
+            'اس کتاب کا Plain Text فارمیٹ دستیاب نہیں ہے۔'
+        );
     }
 
-    const res = await axios.get(url, {
+    const response = await axios.get(url, {
         timeout: 60000,
         responseType: 'text',
-        maxContentLength: 15 * 1024 * 1024
+        maxContentLength: MAX_BOOK_SIZE,
+        headers: {
+            'User-Agent': 'NAWAZ-MD-Novel-Reader/1.0'
+        }
     });
 
-    let text = String(res.data || '');
+    let text = cleanText(response.data);
 
-    // Remove Gutenberg header and footer when present
-    const start = text.search(
-        /\*\*\*\s*START OF (THE|THIS) PROJECT GUTENBERG/i
-    );
+    const startRegex =
+        /\*\*\*\s*START OF (?:THE|THIS) PROJECT GUTENBERG/i;
 
-    const end = text.search(
-        /\*\*\*\s*END OF (THE|THIS) PROJECT GUTENBERG/i
-    );
+    const endRegex =
+        /\*\*\*\s*END OF (?:THE|THIS) PROJECT GUTENBERG/i;
+
+    const start = text.search(startRegex);
+    const end = text.search(endRegex);
 
     if (start !== -1 && end > start) {
         const headerEnd = text.indexOf('\n', start);
-        text = text.slice(headerEnd + 1, end);
+
+        if (headerEnd !== -1) {
+            text = text.slice(headerEnd + 1, end).trim();
+        }
     }
 
-    text = text.trim();
-
     if (!text) {
-        throw new Error('Empty book');
+        throw new Error('کتاب کا متن خالی ہے۔');
     }
 
     return splitPages(text);
 }
 
-async function sendPage(conn, mek, from, reply, session, page) {
+async function showPage(
+    conn,
+    mek,
+    from,
+    session,
+    page
+) {
     if (page < 0) {
-        return reply('❌ آپ پہلے ہی پہلے صفحے پر ہیں۔');
+        return conn.sendMessage(from, {
+            text: '❌ آپ پہلے صفحے پر ہیں۔'
+        }, { quoted: mek });
     }
 
     if (page >= session.pages.length) {
-        return reply('✅ یہ ناول مکمل ہو چکا ہے۔');
+        return conn.sendMessage(from, {
+            text: '✅ یہ ناول مکمل ہو چکا ہے۔'
+        }, { quoted: mek });
     }
 
     session.page = page;
@@ -100,115 +164,143 @@ async function sendPage(conn, mek, from, reply, session, page) {
             `📖 *Page ${page + 1}/${session.pages.length}*\n\n` +
             `${content}\n\n` +
             `━━━━━━━━━━━━\n` +
-            `➡️ Next: .next\n` +
-            `⬅️ Back: .back\n` +
-            `📄 Page: .page 5\n` +
-            `📚 Books: .novel`
+            `➡️ .next — Next Page\n` +
+            `⬅️ .back — Previous Page\n` +
+            `📄 .page 5 — Open Page\n` +
+            `📚 .novel — Books List`
     }, { quoted: mek });
+}
+
+async function startBook(
+    conn,
+    mek,
+    from,
+    key,
+    book
+) {
+    await conn.sendMessage(from, {
+        text:
+            `📚 *NAWAZ-MD NOVEL READER*\n\n` +
+            `⏳ Loading: ${book.title}\n` +
+            `Please wait...`
+    }, { quoted: mek });
+
+    const pages = await loadBook(book);
+
+    const session = {
+        title: book.title,
+        pages,
+        page: 0
+    };
+
+    sessions.set(key, session);
+    pendingBooks.delete(key);
+
+    return showPage(
+        conn,
+        mek,
+        from,
+        session,
+        0
+    );
 }
 
 // 📚 NOVEL COMMAND
 cmd({
     pattern: 'novel',
-    desc: 'Read novels in WhatsApp',
+    desc: 'Read books in WhatsApp',
     category: 'novel',
     react: '📚',
     filename: __filename
 },
 async (conn, mek, m, { from, q, reply }) => {
-    try {
-        const key = getKey(from, m);
-        const query = (q || '').trim();
+    const key = getKey(from, m);
+    const query = String(q || '').trim();
 
+    try {
         // Show available books
         if (!query) {
             const books = await getBooks();
 
             if (!books.length) {
-                return reply('❌ کوئی کتاب دستیاب نہیں ملی۔');
+                return reply(
+                    '❌ فی الحال کوئی کتاب دستیاب نہیں۔'
+                );
             }
 
-            sessions.set(key, {
-                mode: 'choose',
-                books
-            });
+            pendingBooks.set(key, books);
 
             const list = books.map((book, i) =>
-                `${i + 1}. ${book.title}\n` +
-                `   ✍️ ${book.authors?.[0]?.name || 'Unknown'}`
+                `${i + 1}. *${book.title}*\n` +
+                `✍️ ${book.authors?.[0]?.name || 'Unknown'}`
             ).join('\n\n');
 
             return reply(
-                `📚 *NAWAZ MD NOVEL READER*\n\n` +
+                `📚 *NAWAZ-MD NOVEL READER*\n\n` +
                 `*Available Books:*\n\n${list}\n\n` +
                 `━━━━━━━━━━━━\n` +
-                `📖 کتاب شروع کرنے کے لیے:\n` +
+                `کتاب منتخب کرنے کے لیے:\n` +
                 `.novel 1\n\n` +
                 `یا کتاب کا نام لکھیں:\n` +
                 `.novel Romeo and Juliet`
             );
         }
 
-        const oldSession = sessions.get(key);
-
-        // Select from the displayed list
-        if (
-            /^\d+$/.test(query) &&
-            oldSession?.mode === 'choose'
-        ) {
+        // Select a book from the list
+        if (/^\d+$/.test(query)) {
+            const books = pendingBooks.get(key);
             const index = Number(query) - 1;
-            const book = oldSession.books[index];
 
-            if (!book) {
-                return reply('❌ غلط نمبر۔ دوبارہ .novel لکھیں۔');
+            if (!books || !books[index]) {
+                return reply(
+                    '❌ غلط نمبر۔ پہلے .novel لکھ کر فہرست حاصل کریں۔'
+                );
             }
 
-            const pages = await loadBook(book);
-
-            const session = {
-                mode: 'reading',
-                title: book.title,
-                pages,
-                page: 0
-            };
-
-            sessions.set(key, session);
-
-            return sendPage(
-                conn, mek, from, reply, session, 0
+            return await startBook(
+                conn,
+                mek,
+                from,
+                key,
+                books[index]
             );
         }
 
-        // Search by book name
+        // Search book by name
         const books = await getBooks(query);
 
         if (!books.length) {
             return reply(
-                '❌ کوئی کتاب نہیں ملی۔ دوسرا نام آزمائیں۔'
+                `❌ "${query}" نام کی کوئی کتاب نہیں ملی۔\n\n` +
+                `دوسرا نام آزمائیں یا .novel لکھیں۔`
             );
         }
 
-        const book = books[0];
-        const pages = await loadBook(book);
+        // Exact match first, otherwise first result
+        const book =
+            books.find(b =>
+                b.title.toLowerCase() === query.toLowerCase()
+            ) || books[0];
 
-        const session = {
-            mode: 'reading',
-            title: book.title,
-            pages,
-            page: 0
-        };
-
-        sessions.set(key, session);
-
-        return sendPage(
-            conn, mek, from, reply, session, 0
+        return await startBook(
+            conn,
+            mek,
+            from,
+            key,
+            book
         );
 
-    } catch (e) {
-        console.error('Novel command error:', e.message);
+    } catch (error) {
+        console.error(
+            'NOVEL ERROR:',
+            error.response?.status || '',
+            error.message
+        );
 
         return reply(
-            '❌ کتاب لوڈ نہیں ہو سکی۔ API یا کتاب کا متن دستیاب نہیں ہے۔'
+            `❌ *Book Loading Failed*\n\n` +
+            `Reason: ${error.message}\n\n` +
+            `براہِ کرم دوسرا ناول آزمائیں۔`
         );
     }
 });
@@ -224,13 +316,18 @@ cmd({
 async (conn, mek, m, { from, reply }) => {
     const session = sessions.get(getKey(from, m));
 
-    if (!session || session.mode !== 'reading') {
-        return reply('📚 پہلے .novel سے کتاب منتخب کریں۔');
+    if (!session) {
+        return reply(
+            '📚 پہلے .novel سے کوئی کتاب شروع کریں۔'
+        );
     }
 
-    return sendPage(
-        conn, mek, from, reply,
-        session, session.page + 1
+    return showPage(
+        conn,
+        mek,
+        from,
+        session,
+        session.page + 1
     );
 });
 
@@ -245,20 +342,25 @@ cmd({
 async (conn, mek, m, { from, reply }) => {
     const session = sessions.get(getKey(from, m));
 
-    if (!session || session.mode !== 'reading') {
-        return reply('📚 پہلے .novel سے کتاب منتخب کریں۔');
+    if (!session) {
+        return reply(
+            '📚 پہلے .novel سے کوئی کتاب شروع کریں۔'
+        );
     }
 
-    return sendPage(
-        conn, mek, from, reply,
-        session, session.page - 1
+    return showPage(
+        conn,
+        mek,
+        from,
+        session,
+        session.page - 1
     );
 });
 
 // 📄 SPECIFIC PAGE
 cmd({
     pattern: 'page',
-    desc: 'Open specific novel page',
+    desc: 'Open a specific novel page',
     category: 'novel',
     react: '📄',
     filename: __filename
@@ -266,8 +368,10 @@ cmd({
 async (conn, mek, m, { from, q, reply }) => {
     const session = sessions.get(getKey(from, m));
 
-    if (!session || session.mode !== 'reading') {
-        return reply('📚 پہلے .novel سے کتاب منتخب کریں۔');
+    if (!session) {
+        return reply(
+            '📚 پہلے .novel سے کوئی کتاب شروع کریں۔'
+        );
     }
 
     const number = Number(q);
@@ -282,9 +386,12 @@ async (conn, mek, m, { from, q, reply }) => {
         );
     }
 
-    return sendPage(
-        conn, mek, from, reply,
-        session, number - 1
+    return showPage(
+        conn,
+        mek,
+        from,
+        session,
+        number - 1
     );
 });
-
+        
