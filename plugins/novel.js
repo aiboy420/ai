@@ -1,47 +1,32 @@
-
 import axios from 'axios';
+import { fileURLToPath } from 'url';
 import { cmd } from '../command.js';
 
+const __filename = fileURLToPath(import.meta.url);
 const API = 'https://ur.wikisource.org/w/api.php';
-const cache = new Map();
 
-const PAGE_SIZE = 3000;
-const MAX_RESULTS = 15;
+const userBooks = new Map();
+const userReading = new Map();
+
+const PAGE_SIZE = 2500;
 
 function getKey(from, m) {
   return `${from}:${m.sender || m.key?.participant || ''}`;
 }
 
-function splitText(text, size = PAGE_SIZE) {
+function splitText(text) {
   const chars = Array.from(text || '');
   const pages = [];
 
-  for (let i = 0; i < chars.length; i += size) {
-    pages.push(chars.slice(i, i + size).join(''));
+  for (let i = 0; i < chars.length; i += PAGE_SIZE) {
+    pages.push(chars.slice(i, i + PAGE_SIZE).join(''));
   }
 
-  return pages.length ? pages : ['اس صفحے پر پڑھنے کے لیے متن دستیاب نہیں۔'];
+  return pages.length ? pages : ['متن دستیاب نہیں۔'];
 }
 
-function cleanText(text = '') {
-  return text
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/\{\{[^{}]*\}\}/g, ' ')
-    .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2')
-    .replace(/\[\[([^\]]+)\]\]/g, '$1')
-    .replace(/\[https?:\/\/\S+\s*([^\]]*)\]/g, '$1')
-    .replace(/'''?/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-async function searchWikisource(query) {
-  const { data } = await axios.get(API, {
+async function searchBooks(query) {
+  const response = await axios.get(API, {
     params: {
       action: 'query',
       list: 'search',
@@ -50,45 +35,38 @@ async function searchWikisource(query) {
       srlimit: 10,
       format: 'json'
     },
-    timeout: 15000
+    timeout: 20000
   });
 
-  return data?.query?.search || [];
+  return response.data?.query?.search || [];
 }
 
-async function getNovelList() {
-  const searches = [
-    'اردو ناول',
-    'اردو کہانی',
-    'داستان اردو'
-  ];
+async function getBookList() {
+  const queries = ['اردو ناول', 'اردو کہانی', 'داستان اردو'];
+  const found = new Map();
 
-  const results = await Promise.all(
-    searches.map(term => searchWikisource(term).catch(() => []))
-  );
+  for (const query of queries) {
+    try {
+      const results = await searchBooks(query);
 
-  const unique = new Map();
-
-  for (const group of results) {
-    for (const item of group) {
-      if (item?.title && !unique.has(item.title)) {
-        unique.set(item.title, {
-          title: item.title,
-          pageid: item.pageid
-        });
+      for (const item of results) {
+        if (item.title && !found.has(item.title)) {
+          found.set(item.title, item);
+        }
       }
+    } catch (error) {
+      console.error(`Novel search error (${query}):`, error.message);
     }
   }
 
-  return [...unique.values()].slice(0, MAX_RESULTS);
+  return [...found.values()].slice(0, 15);
 }
 
-async function getPageText(title) {
-  const { data } = await axios.get(API, {
+async function getBookText(title) {
+  const response = await axios.get(API, {
     params: {
       action: 'query',
       prop: 'extracts',
-      explaintext: 1,
       explaintext: 1,
       titles: title,
       format: 'json'
@@ -96,192 +74,182 @@ async function getPageText(title) {
     timeout: 20000
   });
 
-  const pages = data?.query?.pages;
+  const pages = response.data?.query?.pages;
   const page = pages ? Object.values(pages)[0] : null;
 
   if (!page || page.missing || !page.extract) {
-    throw new Error('اس کتاب کا متن دستیاب نہیں ہے۔');
+    throw new Error('Book text not found');
   }
 
-  return cleanText(page.extract);
+  return page.extract.trim();
 }
 
-async function sendNovelPage(reply, state, pageIndex) {
-  const page = state.pages[pageIndex];
-
-  if (!page) {
-    return reply('یہ صفحہ موجود نہیں۔');
+async function showPage(reply, state, pageIndex) {
+  if (pageIndex < 0 || pageIndex >= state.pages.length) {
+    return reply('❌ یہ صفحہ دستیاب نہیں ہے۔');
   }
 
   state.page = pageIndex;
 
-  const message =
+  const text =
     `📖 *${state.title}*\n` +
     `صفحہ: ${pageIndex + 1}/${state.pages.length}\n\n` +
-    `${page}\n\n` +
+    `${state.pages[pageIndex]}\n\n` +
     `اگلا صفحہ: .next\n` +
     `پچھلا صفحہ: .back\n` +
-    `مخصوص صفحہ: .page ${pageIndex + 1}`;
+    `مخصوص صفحہ: .page 3`;
 
-  return reply(message);
+  return reply(text);
 }
 
-async function openNovel(reply, key, title) {
+async function openBook(reply, key, title) {
   try {
-    await reply(`📚 *${title}*\n\nکتاب کا متن لوڈ ہو رہا ہے، براہِ کرم انتظار کریں...`);
+    await reply(`📚 *${title}*\n\nمتن لوڈ ہو رہا ہے...`);
 
-    const text = await getPageText(title);
-    const pages = splitText(text);
-
+    const text = await getBookText(title);
     const state = {
       title,
-      pages,
+      pages: splitText(text),
       page: 0
     };
 
-    cache.set(key, {
-      ...(cache.get(key) || {}),
-      current: state
-    });
+    userReading.set(key, state);
 
-    return sendNovelPage(reply, state, 0);
+    return showPage(reply, state, 0);
   } catch (error) {
-    console.error('Novel plugin error:', error.message);
+    console.error('Open novel error:', error.message);
     return reply(
-      '❌ اس کتاب کا متن حاصل نہیں ہو سکا۔\n' +
-      'براہِ کرم کسی دوسری کتاب کا نام یا نمبر آزمائیں۔'
+      '❌ کتاب کا متن لوڈ نہیں ہو سکا۔\n' +
+      'کسی دوسری کتاب کا نام آزمائیں۔'
     );
   }
 }
 
 cmd({
   pattern: 'novel',
-  desc: 'اردو کتابوں کی فہرست اور مطالعہ',
+  desc: 'Urdu novel and story reader',
   category: 'reading',
+  react: '📚',
   filename: __filename
 }, async (conn, mek, m, { from, q, reply }) => {
   const key = getKey(from, m);
   const input = (q || '').trim();
 
   try {
-    // نمبر یا نام سے کتاب کھولیں
     if (input) {
-      const saved = cache.get(key);
       const number = Number(input);
+      const savedList = userBooks.get(key);
 
       if (
-        saved?.list?.length &&
+        savedList &&
         Number.isInteger(number) &&
         number >= 1 &&
-        number <= saved.list.length
+        number <= savedList.length
       ) {
-        const selected = saved.list[number - 1];
-        return openNovel(reply, key, selected.title);
+        return openBook(reply, key, savedList[number - 1].title);
       }
 
-      const results = await searchWikisource(input);
+      const results = await searchBooks(input);
 
       if (!results.length) {
         return reply(
-          '❌ اس نام سے کوئی کتاب نہیں ملی۔\n' +
-          'فہرست کے لیے .novel لکھیں۔'
+          '❌ کوئی کتاب نہیں ملی۔\n' +
+          'تمام کتابوں کی فہرست کے لیے .novel لکھیں۔'
         );
       }
 
-      const selected = results[0];
-      return openNovel(reply, key, selected.title);
+      return openBook(reply, key, results[0].title);
     }
 
-    // پہلے اردو کتابوں کی فہرست دکھائیں
-    await reply('📚 *اردو کتابوں کی فہرست تلاش کی جا رہی ہے...*');
+    await reply('📚 اردو کتابوں کی فہرست تلاش ہو رہی ہے...');
 
-    const list = await getNovelList();
+    const books = await getBookList();
 
-    if (!list.length) {
+    if (!books.length) {
       return reply(
-        '❌ اس وقت Wikisource سے کتابوں کی فہرست حاصل نہیں ہو سکی۔\n' +
-        'کچھ دیر بعد دوبارہ کوشش کریں۔'
+        '❌ کتابوں کی فہرست حاصل نہیں ہو سکی۔\n' +
+        'بعد میں دوبارہ کوشش کریں۔'
       );
     }
 
-    cache.set(key, {
-      ...(cache.get(key) || {}),
-      list
+    userBooks.set(key, books);
+
+    let text = '*NAWAZ-MD Urdu Books*\n\n';
+
+    books.forEach((book, index) => {
+      text += `${index + 1}. ${book.title}\n`;
     });
 
-    let message = '📚 *NAWAZ-MD Urdu Books*\n\n';
-
-    list.forEach((book, index) => {
-      message += `${index + 1}. ${book.title}\n`;
-    });
-
-    message +=
-      '\n📖 *کتاب کھولنے کا طریقہ*\n' +
-      'مثال: .novel 2\n' +
-      'یا: .novel کتاب کا نام\n\n' +
-      'صفحہ آگے: .next\n' +
-      'صفحہ پیچھے: .back\n' +
+    text +=
+      '\nکتاب کھولنے کے لیے:\n' +
+      '.novel 2\n' +
+      'یا .novel کتاب کا نام\n\n' +
+      'اگلا صفحہ: .next\n' +
+      'پچھلا صفحہ: .back\n' +
       'مخصوص صفحہ: .page 3';
 
-    return reply(message);
+    return reply(text);
   } catch (error) {
-    console.error('Novel list error:', error.message);
-    return reply('❌ کتابوں کی فہرست حاصل نہیں ہو سکی۔ دوبارہ کوشش کریں۔');
+    console.error('Novel command error:', error.message);
+    return reply('❌ کمانڈ چلانے میں مسئلہ ہوا۔ دوبارہ کوشش کریں۔');
   }
 });
 
 cmd({
   pattern: 'next',
-  desc: 'اگلا ناول صفحہ',
+  desc: 'Next novel page',
   category: 'reading',
+  react: '📖',
   filename: __filename
 }, async (conn, mek, m, { from, reply }) => {
   const key = getKey(from, m);
-  const state = cache.get(key)?.current;
+  const state = userReading.get(key);
 
   if (!state) {
-    return reply('پہلے .novel لکھ کر کوئی کتاب کھولیں۔');
+    return reply('پہلے .novel لکھ کر کتاب کھولیں۔');
   }
 
   if (state.page >= state.pages.length - 1) {
-    return reply('یہ آخری دستیاب صفحہ ہے۔');
+    return reply('آپ آخری دستیاب صفحے پر ہیں۔');
   }
 
-  return sendNovelPage(reply, state, state.page + 1);
+  return showPage(reply, state, state.page + 1);
 });
 
 cmd({
   pattern: 'back',
-  desc: 'پچھلا ناول صفحہ',
+  desc: 'Previous novel page',
   category: 'reading',
+  react: '📖',
   filename: __filename
 }, async (conn, mek, m, { from, reply }) => {
   const key = getKey(from, m);
-  const state = cache.get(key)?.current;
+  const state = userReading.get(key);
 
   if (!state) {
-    return reply('پہلے .novel لکھ کر کوئی کتاب کھولیں۔');
+    return reply('پہلے .novel لکھ کر کتاب کھولیں۔');
   }
 
   if (state.page <= 0) {
-    return reply('آپ پہلے ہی پہلے صفحے پر ہیں۔');
+    return reply('آپ پہلے صفحے پر ہیں۔');
   }
 
-  return sendNovelPage(reply, state, state.page - 1);
+  return showPage(reply, state, state.page - 1);
 });
 
 cmd({
   pattern: 'page',
-  desc: 'ناول کا مخصوص صفحہ کھولیں',
+  desc: 'Open a specific novel page',
   category: 'reading',
+  react: '📖',
   filename: __filename
 }, async (conn, mek, m, { from, q, reply }) => {
   const key = getKey(from, m);
-  const state = cache.get(key)?.current;
+  const state = userReading.get(key);
   const pageNumber = Number((q || '').trim());
 
   if (!state) {
-    return reply('پہلے .novel لکھ کر کوئی کتاب کھولیں۔');
+    return reply('پہلے .novel لکھ کر کتاب کھولیں۔');
   }
 
   if (
@@ -290,11 +258,11 @@ cmd({
     pageNumber > state.pages.length
   ) {
     return reply(
-      `براہِ کرم 1 سے ${state.pages.length} کے درمیان صفحہ نمبر دیں۔\n` +
+      `صفحہ نمبر 1 سے ${state.pages.length} تک درج کریں۔\n` +
       'مثال: .page 3'
     );
   }
 
-  return sendNovelPage(reply, state, pageNumber - 1);
+  return showPage(reply, state, pageNumber - 1);
 });
-       
+  
