@@ -1,397 +1,300 @@
-import { fileURLToPath } from 'url';
+
 import axios from 'axios';
 import { cmd } from '../command.js';
 
-const __filename = fileURLToPath(import.meta.url);
+const API = 'https://ur.wikisource.org/w/api.php';
+const cache = new Map();
 
-const API = 'https://gutendex.com/books/';
-
-const sessions = new Map();
-const pendingBooks = new Map();
-
-const PAGE_SIZE = 2500;
-const MAX_BOOK_SIZE = 12 * 1024 * 1024;
+const PAGE_SIZE = 3000;
+const MAX_RESULTS = 15;
 
 function getKey(from, m) {
-    return `${from}:${m.sender || m.key?.participant || ''}`;
+  return `${from}:${m.sender || m.key?.participant || ''}`;
 }
 
-function cleanText(text) {
-    return String(text || '')
-        .replace(/\r/g, '')
-        .replace(/\u0000/g, '')
-        .trim();
+function splitText(text, size = PAGE_SIZE) {
+  const chars = Array.from(text || '');
+  const pages = [];
+
+  for (let i = 0; i < chars.length; i += size) {
+    pages.push(chars.slice(i, i + size).join(''));
+  }
+
+  return pages.length ? pages : ['اس صفحے پر پڑھنے کے لیے متن دستیاب نہیں۔'];
 }
 
-function splitPages(text) {
-    const pages = [];
-    let current = '';
+function cleanText(text = '') {
+  return text
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\{\{[^{}]*\}\}/g, ' ')
+    .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2')
+    .replace(/\[\[([^\]]+)\]\]/g, '$1')
+    .replace(/\[https?:\/\/\S+\s*([^\]]*)\]/g, '$1')
+    .replace(/'''?/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
-    for (const paragraph of text.split(/\n\s*\n/)) {
-        const part = paragraph.trim();
+async function searchWikisource(query) {
+  const { data } = await axios.get(API, {
+    params: {
+      action: 'query',
+      list: 'search',
+      srsearch: query,
+      srnamespace: 0,
+      srlimit: 10,
+      format: 'json'
+    },
+    timeout: 15000
+  });
 
-        if (!part) continue;
+  return data?.query?.search || [];
+}
 
-        if (part.length > PAGE_SIZE) {
-            if (current) {
-                pages.push(current);
-                current = '';
-            }
+async function getNovelList() {
+  const searches = [
+    'اردو ناول',
+    'اردو کہانی',
+    'داستان اردو'
+  ];
 
-            for (let i = 0; i < part.length; i += PAGE_SIZE) {
-                pages.push(part.slice(i, i + PAGE_SIZE));
-            }
+  const results = await Promise.all(
+    searches.map(term => searchWikisource(term).catch(() => []))
+  );
 
-            continue;
-        }
+  const unique = new Map();
 
-        const combined = current
-            ? `${current}\n\n${part}`
-            : part;
-
-        if (combined.length > PAGE_SIZE) {
-            pages.push(current);
-            current = part;
-        } else {
-            current = combined;
-        }
+  for (const group of results) {
+    for (const item of group) {
+      if (item?.title && !unique.has(item.title)) {
+        unique.set(item.title, {
+          title: item.title,
+          pageid: item.pageid
+        });
+      }
     }
+  }
 
-    if (current) pages.push(current);
-
-    return pages;
+  return [...unique.values()].slice(0, MAX_RESULTS);
 }
 
-async function getBooks(query = '') {
-    const response = await axios.get(API, {
-        params: {
-            search: query,
-            page_size: 10
-        },
-        timeout: 30000,
-        headers: {
-            'User-Agent': 'NAWAZ-MD-Novel-Reader/1.0'
-        }
-    });
+async function getPageText(title) {
+  const { data } = await axios.get(API, {
+    params: {
+      action: 'query',
+      prop: 'extracts',
+      explaintext: 1,
+      explaintext: 1,
+      titles: title,
+      format: 'json'
+    },
+    timeout: 20000
+  });
 
-    return response.data?.results || [];
+  const pages = data?.query?.pages;
+  const page = pages ? Object.values(pages)[0] : null;
+
+  if (!page || page.missing || !page.extract) {
+    throw new Error('اس کتاب کا متن دستیاب نہیں ہے۔');
+  }
+
+  return cleanText(page.extract);
 }
 
-function getTextUrl(book) {
-    const formats = book.formats || {};
+async function sendNovelPage(reply, state, pageIndex) {
+  const page = state.pages[pageIndex];
 
-    const entries = Object.entries(formats);
+  if (!page) {
+    return reply('یہ صفحہ موجود نہیں۔');
+  }
 
-    const plainText = entries.find(([type, url]) =>
-        type.toLowerCase().startsWith('text/plain') &&
-        typeof url === 'string' &&
-        /^https?:\/\//i.test(url)
-    );
+  state.page = pageIndex;
 
-    return plainText?.[1] || null;
+  const message =
+    `📖 *${state.title}*\n` +
+    `صفحہ: ${pageIndex + 1}/${state.pages.length}\n\n` +
+    `${page}\n\n` +
+    `اگلا صفحہ: .next\n` +
+    `پچھلا صفحہ: .back\n` +
+    `مخصوص صفحہ: .page ${pageIndex + 1}`;
+
+  return reply(message);
 }
 
-async function loadBook(book) {
-    const url = getTextUrl(book);
+async function openNovel(reply, key, title) {
+  try {
+    await reply(`📚 *${title}*\n\nکتاب کا متن لوڈ ہو رہا ہے، براہِ کرم انتظار کریں...`);
 
-    if (!url) {
-        throw new Error(
-            'اس کتاب کا Plain Text فارمیٹ دستیاب نہیں ہے۔'
-        );
-    }
+    const text = await getPageText(title);
+    const pages = splitText(text);
 
-    const response = await axios.get(url, {
-        timeout: 60000,
-        responseType: 'text',
-        maxContentLength: MAX_BOOK_SIZE,
-        headers: {
-            'User-Agent': 'NAWAZ-MD-Novel-Reader/1.0'
-        }
-    });
-
-    let text = cleanText(response.data);
-
-    const startRegex =
-        /\*\*\*\s*START OF (?:THE|THIS) PROJECT GUTENBERG/i;
-
-    const endRegex =
-        /\*\*\*\s*END OF (?:THE|THIS) PROJECT GUTENBERG/i;
-
-    const start = text.search(startRegex);
-    const end = text.search(endRegex);
-
-    if (start !== -1 && end > start) {
-        const headerEnd = text.indexOf('\n', start);
-
-        if (headerEnd !== -1) {
-            text = text.slice(headerEnd + 1, end).trim();
-        }
-    }
-
-    if (!text) {
-        throw new Error('کتاب کا متن خالی ہے۔');
-    }
-
-    return splitPages(text);
-}
-
-async function showPage(
-    conn,
-    mek,
-    from,
-    session,
-    page
-) {
-    if (page < 0) {
-        return conn.sendMessage(from, {
-            text: '❌ آپ پہلے صفحے پر ہیں۔'
-        }, { quoted: mek });
-    }
-
-    if (page >= session.pages.length) {
-        return conn.sendMessage(from, {
-            text: '✅ یہ ناول مکمل ہو چکا ہے۔'
-        }, { quoted: mek });
-    }
-
-    session.page = page;
-
-    const content = session.pages[page];
-
-    return conn.sendMessage(from, {
-        text:
-            `📚 *${session.title}*\n` +
-            `📖 *Page ${page + 1}/${session.pages.length}*\n\n` +
-            `${content}\n\n` +
-            `━━━━━━━━━━━━\n` +
-            `➡️ .next — Next Page\n` +
-            `⬅️ .back — Previous Page\n` +
-            `📄 .page 5 — Open Page\n` +
-            `📚 .novel — Books List`
-    }, { quoted: mek });
-}
-
-async function startBook(
-    conn,
-    mek,
-    from,
-    key,
-    book
-) {
-    await conn.sendMessage(from, {
-        text:
-            `📚 *NAWAZ-MD NOVEL READER*\n\n` +
-            `⏳ Loading: ${book.title}\n` +
-            `Please wait...`
-    }, { quoted: mek });
-
-    const pages = await loadBook(book);
-
-    const session = {
-        title: book.title,
-        pages,
-        page: 0
+    const state = {
+      title,
+      pages,
+      page: 0
     };
 
-    sessions.set(key, session);
-    pendingBooks.delete(key);
+    cache.set(key, {
+      ...(cache.get(key) || {}),
+      current: state
+    });
 
-    return showPage(
-        conn,
-        mek,
-        from,
-        session,
-        0
+    return sendNovelPage(reply, state, 0);
+  } catch (error) {
+    console.error('Novel plugin error:', error.message);
+    return reply(
+      '❌ اس کتاب کا متن حاصل نہیں ہو سکا۔\n' +
+      'براہِ کرم کسی دوسری کتاب کا نام یا نمبر آزمائیں۔'
     );
+  }
 }
 
-// 📚 NOVEL COMMAND
 cmd({
-    pattern: 'novel',
-    desc: 'Read books in WhatsApp',
-    category: 'novel',
-    react: '📚',
-    filename: __filename
-},
-async (conn, mek, m, { from, q, reply }) => {
-    const key = getKey(from, m);
-    const query = String(q || '').trim();
+  pattern: 'novel',
+  desc: 'اردو کتابوں کی فہرست اور مطالعہ',
+  category: 'reading',
+  filename: __filename
+}, async (conn, mek, m, { from, q, reply }) => {
+  const key = getKey(from, m);
+  const input = (q || '').trim();
 
-    try {
-        // Show available books
-        if (!query) {
-            const books = await getBooks();
+  try {
+    // نمبر یا نام سے کتاب کھولیں
+    if (input) {
+      const saved = cache.get(key);
+      const number = Number(input);
 
-            if (!books.length) {
-                return reply(
-                    '❌ فی الحال کوئی کتاب دستیاب نہیں۔'
-                );
-            }
+      if (
+        saved?.list?.length &&
+        Number.isInteger(number) &&
+        number >= 1 &&
+        number <= saved.list.length
+      ) {
+        const selected = saved.list[number - 1];
+        return openNovel(reply, key, selected.title);
+      }
 
-            pendingBooks.set(key, books);
+      const results = await searchWikisource(input);
 
-            const list = books.map((book, i) =>
-                `${i + 1}. *${book.title}*\n` +
-                `✍️ ${book.authors?.[0]?.name || 'Unknown'}`
-            ).join('\n\n');
-
-            return reply(
-                `📚 *NAWAZ-MD NOVEL READER*\n\n` +
-                `*Available Books:*\n\n${list}\n\n` +
-                `━━━━━━━━━━━━\n` +
-                `کتاب منتخب کرنے کے لیے:\n` +
-                `.novel 1\n\n` +
-                `یا کتاب کا نام لکھیں:\n` +
-                `.novel Romeo and Juliet`
-            );
-        }
-
-        // Select a book from the list
-        if (/^\d+$/.test(query)) {
-            const books = pendingBooks.get(key);
-            const index = Number(query) - 1;
-
-            if (!books || !books[index]) {
-                return reply(
-                    '❌ غلط نمبر۔ پہلے .novel لکھ کر فہرست حاصل کریں۔'
-                );
-            }
-
-            return await startBook(
-                conn,
-                mek,
-                from,
-                key,
-                books[index]
-            );
-        }
-
-        // Search book by name
-        const books = await getBooks(query);
-
-        if (!books.length) {
-            return reply(
-                `❌ "${query}" نام کی کوئی کتاب نہیں ملی۔\n\n` +
-                `دوسرا نام آزمائیں یا .novel لکھیں۔`
-            );
-        }
-
-        // Exact match first, otherwise first result
-        const book =
-            books.find(b =>
-                b.title.toLowerCase() === query.toLowerCase()
-            ) || books[0];
-
-        return await startBook(
-            conn,
-            mek,
-            from,
-            key,
-            book
-        );
-
-    } catch (error) {
-        console.error(
-            'NOVEL ERROR:',
-            error.response?.status || '',
-            error.message
-        );
-
+      if (!results.length) {
         return reply(
-            `❌ *Book Loading Failed*\n\n` +
-            `Reason: ${error.message}\n\n` +
-            `براہِ کرم دوسرا ناول آزمائیں۔`
+          '❌ اس نام سے کوئی کتاب نہیں ملی۔\n' +
+          'فہرست کے لیے .novel لکھیں۔'
         );
+      }
+
+      const selected = results[0];
+      return openNovel(reply, key, selected.title);
     }
+
+    // پہلے اردو کتابوں کی فہرست دکھائیں
+    await reply('📚 *اردو کتابوں کی فہرست تلاش کی جا رہی ہے...*');
+
+    const list = await getNovelList();
+
+    if (!list.length) {
+      return reply(
+        '❌ اس وقت Wikisource سے کتابوں کی فہرست حاصل نہیں ہو سکی۔\n' +
+        'کچھ دیر بعد دوبارہ کوشش کریں۔'
+      );
+    }
+
+    cache.set(key, {
+      ...(cache.get(key) || {}),
+      list
+    });
+
+    let message = '📚 *NAWAZ-MD Urdu Books*\n\n';
+
+    list.forEach((book, index) => {
+      message += `${index + 1}. ${book.title}\n`;
+    });
+
+    message +=
+      '\n📖 *کتاب کھولنے کا طریقہ*\n' +
+      'مثال: .novel 2\n' +
+      'یا: .novel کتاب کا نام\n\n' +
+      'صفحہ آگے: .next\n' +
+      'صفحہ پیچھے: .back\n' +
+      'مخصوص صفحہ: .page 3';
+
+    return reply(message);
+  } catch (error) {
+    console.error('Novel list error:', error.message);
+    return reply('❌ کتابوں کی فہرست حاصل نہیں ہو سکی۔ دوبارہ کوشش کریں۔');
+  }
 });
 
-// ➡️ NEXT PAGE
 cmd({
-    pattern: 'next',
-    desc: 'Next novel page',
-    category: 'novel',
-    react: '➡️',
-    filename: __filename
-},
-async (conn, mek, m, { from, reply }) => {
-    const session = sessions.get(getKey(from, m));
+  pattern: 'next',
+  desc: 'اگلا ناول صفحہ',
+  category: 'reading',
+  filename: __filename
+}, async (conn, mek, m, { from, reply }) => {
+  const key = getKey(from, m);
+  const state = cache.get(key)?.current;
 
-    if (!session) {
-        return reply(
-            '📚 پہلے .novel سے کوئی کتاب شروع کریں۔'
-        );
-    }
+  if (!state) {
+    return reply('پہلے .novel لکھ کر کوئی کتاب کھولیں۔');
+  }
 
-    return showPage(
-        conn,
-        mek,
-        from,
-        session,
-        session.page + 1
+  if (state.page >= state.pages.length - 1) {
+    return reply('یہ آخری دستیاب صفحہ ہے۔');
+  }
+
+  return sendNovelPage(reply, state, state.page + 1);
+});
+
+cmd({
+  pattern: 'back',
+  desc: 'پچھلا ناول صفحہ',
+  category: 'reading',
+  filename: __filename
+}, async (conn, mek, m, { from, reply }) => {
+  const key = getKey(from, m);
+  const state = cache.get(key)?.current;
+
+  if (!state) {
+    return reply('پہلے .novel لکھ کر کوئی کتاب کھولیں۔');
+  }
+
+  if (state.page <= 0) {
+    return reply('آپ پہلے ہی پہلے صفحے پر ہیں۔');
+  }
+
+  return sendNovelPage(reply, state, state.page - 1);
+});
+
+cmd({
+  pattern: 'page',
+  desc: 'ناول کا مخصوص صفحہ کھولیں',
+  category: 'reading',
+  filename: __filename
+}, async (conn, mek, m, { from, q, reply }) => {
+  const key = getKey(from, m);
+  const state = cache.get(key)?.current;
+  const pageNumber = Number((q || '').trim());
+
+  if (!state) {
+    return reply('پہلے .novel لکھ کر کوئی کتاب کھولیں۔');
+  }
+
+  if (
+    !Number.isInteger(pageNumber) ||
+    pageNumber < 1 ||
+    pageNumber > state.pages.length
+  ) {
+    return reply(
+      `براہِ کرم 1 سے ${state.pages.length} کے درمیان صفحہ نمبر دیں۔\n` +
+      'مثال: .page 3'
     );
+  }
+
+  return sendNovelPage(reply, state, pageNumber - 1);
 });
-
-// ⬅️ PREVIOUS PAGE
-cmd({
-    pattern: 'back',
-    desc: 'Previous novel page',
-    category: 'novel',
-    react: '⬅️',
-    filename: __filename
-},
-async (conn, mek, m, { from, reply }) => {
-    const session = sessions.get(getKey(from, m));
-
-    if (!session) {
-        return reply(
-            '📚 پہلے .novel سے کوئی کتاب شروع کریں۔'
-        );
-    }
-
-    return showPage(
-        conn,
-        mek,
-        from,
-        session,
-        session.page - 1
-    );
-});
-
-// 📄 SPECIFIC PAGE
-cmd({
-    pattern: 'page',
-    desc: 'Open a specific novel page',
-    category: 'novel',
-    react: '📄',
-    filename: __filename
-},
-async (conn, mek, m, { from, q, reply }) => {
-    const session = sessions.get(getKey(from, m));
-
-    if (!session) {
-        return reply(
-            '📚 پہلے .novel سے کوئی کتاب شروع کریں۔'
-        );
-    }
-
-    const number = Number(q);
-
-    if (
-        !Number.isInteger(number) ||
-        number < 1 ||
-        number > session.pages.length
-    ) {
-        return reply(
-            `❌ صفحہ 1 سے ${session.pages.length} تک منتخب کریں۔`
-        );
-    }
-
-    return showPage(
-        conn,
-        mek,
-        from,
-        session,
-        number - 1
-    );
-});
-        
+       
