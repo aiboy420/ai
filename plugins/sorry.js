@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 
 cmd({
   pattern: 'sorry',
-  desc: 'Send multiple apology messages to a mentioned user',
+  desc: 'Send multiple apology messages by mention, reply, or private chat',
   category: 'general',
   react: '🥺',
   filename: __filename
@@ -14,33 +14,53 @@ cmd({
   try {
     const sender = m.sender || m.key?.participant;
 
+    if (!sender) {
+      return reply('❌ Could not identify who is apologizing.');
+    }
+
     const contextInfo =
       m.message?.extendedTextMessage?.contextInfo ||
       m.message?.imageMessage?.contextInfo ||
       m.message?.videoMessage?.contextInfo ||
       m.message?.documentMessage?.contextInfo ||
+      m.message?.stickerMessage?.contextInfo ||
       {};
 
-    const mentioned =
-      m.mentionedJid ||
-      contextInfo.mentionedJid ||
-      [];
+    const mentioned = [
+      ...(m.mentionedJid || []),
+      ...(contextInfo.mentionedJid || [])
+    ];
 
-    const target = mentioned[0];
+    const isGroup = from.endsWith('@g.us');
+
+    // Mentioned user gets first priority
+    let target = mentioned.find(jid => jid && jid !== sender);
+
+    // If no mention, check replied message
+    if (!target && contextInfo.participant) {
+      if (contextInfo.participant !== sender) {
+        target = contextInfo.participant;
+      }
+    }
+
+    // In private chat, use the other person as target
+    if (!target && !isGroup) {
+      target = from;
+    }
 
     if (!target) {
       return reply(
-        '🥺 Please mention the person you want to apologize to.\n\n' +
-        'Example: .sorry @user'
+        '🥺 Please mention someone or reply to their message.\n\n' +
+        'Example: .sorry @user\n\n' +
+        'Or reply to someone’s message with .sorry'
       );
-    }
-
-    if (!sender) {
-      return reply('❌ Could not identify who is apologizing.');
     }
 
     const senderName = sender.split('@')[0];
     const targetName = target.split('@')[0];
+
+    // Mention both sender and target
+    const mentions = [...new Set([sender, target])];
 
     const cards = [
       `🥺 *𝗜'𝗠 𝗧𝗥𝗨𝗟𝗬 𝗦𝗢𝗥𝗥𝗬* 🥺\n\n` +
@@ -71,7 +91,7 @@ cmd({
         from,
         {
           text,
-          mentions: [sender, target]
+          mentions
         },
         { quoted: mek }
       );
