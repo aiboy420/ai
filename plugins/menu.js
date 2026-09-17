@@ -36,34 +36,34 @@ const toBoldFont = (text) => {
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// CATEGORY FORMAT (Optimized)
+// CATEGORY FORMAT
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const formatCategory = (category, cmds) => {
     const validCmds = cmds.filter(cmd => cmd.pattern && !cmd.dontAddCommandList);
     if (validCmds.length === 0) return '';
 
-    let body = `╭━━〔 *${toBoldFont(category.toUpperCase())}* 〕━━┈⊷\n`;
-    body += `┃❖╭─────────·๏\n`;
+    let body = `╭─❍══ ⃟ ⃟ ⃟   ${toBoldFont(category.toUpperCase())}   ⃟ ⃟ ⃟══⊷❍\n`;
+    body += `┇◆╭┉┉┉┉┉┉┉┉┉┉━┈᛭\n`;
 
     for (const c of validCmds) {
-        body += `┃❖┃ .${toBoldFont(c.pattern)}\n`;
+        body += `┇◆┋. _${toBoldFont(c.pattern)}_\n`;
     }
 
-    body += `┃❖└─────────┈⊷\n`;
-    body += `╰─────────┈⊷\n`;
+    body += `┇◆╰┉┉┉┉┉┉┉┉┉┉┉┉┉━┈⊷\n`;
+    body += `╰═══════════════════⍟\n`;
 
     return body;
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// CATEGORY ORDER (Pre-defined for speed)
+// CATEGORY ORDER
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const PRIORITY_ORDER = ['islamic', 'download', 'group'];
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// GROUP COMMANDS (Optimized - Single Loop)
+// GROUP COMMANDS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const getCategorizedCommands = () => {
@@ -87,13 +87,16 @@ const getCategorizedCommands = () => {
     const sortedCategories = Array.from(categorySet).sort((a, b) => {
         const aIdx = PRIORITY_ORDER.indexOf(a);
         const bIdx = PRIORITY_ORDER.indexOf(b);
+
         if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
         if (aIdx !== -1) return -1;
         if (bIdx !== -1) return 1;
+
         return a.localeCompare(b);
     });
     
     const categorized = {};
+
     for (const cat of sortedCategories) {
         if (categoryMap[cat] && categoryMap[cat].length > 0) {
             categorized[cat] = categoryMap[cat];
@@ -104,22 +107,27 @@ const getCategorizedCommands = () => {
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// CHECK IMAGE URL FUNCTION (Without fetch)
+// CHECK IMAGE URL FUNCTION
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const checkImageUrl = (url) => {
     return new Promise((resolve) => {
         const protocol = url.startsWith('https') ? https : http;
+
         const request = protocol.get(url, (response) => {
             const contentType = response.headers['content-type'] || '';
+
             if (contentType.startsWith('image/')) {
                 resolve(true);
             } else {
                 resolve(false);
             }
+
             response.destroy();
         });
+
         request.on('error', () => resolve(false));
+
         request.setTimeout(3000, () => {
             request.destroy();
             resolve(false);
@@ -136,7 +144,7 @@ const MENU_IMAGE_URL = "https://i.ibb.co/cSXNGVzz/nawazmd.jpg";
 
 cmd({
     pattern: "menu",
-    alias: ["m", "fullmenu"],
+    alias: ["m", "allmenu"],
     use: ".menu",
     desc: "Show all bot commands",
     category: "main",
@@ -163,6 +171,7 @@ async (conn, mek, m, { from, sender, reply, userConfig }) => {
         const isValid = await checkImageUrl(MENU_IMAGE_URL);
         
         let imageUrl = MENU_IMAGE_URL;
+
         if (!isValid) {
             console.log("⚠️ Menu image URL not accessible, using fallback");
             imageUrl = "https://i.ibb.co/cSXNGVzz/nawazmd.jpg";
@@ -173,6 +182,7 @@ async (conn, mek, m, { from, sender, reply, userConfig }) => {
 
         // ─── Build menu sections ───
         let menuSections = '';
+
         for (const [category, cmds] of Object.entries(categorized)) {
             if (cmds && cmds.length > 0) {
                 menuSections += formatCategory(category, cmds);
@@ -180,26 +190,26 @@ async (conn, mek, m, { from, sender, reply, userConfig }) => {
         }
 
         // ─── Build menu text ───
-        const dec = `╭━━〔 ✦ ${toBoldFont(BOT_NAME)} ✦ 〕━━┈⊷
-┃★╭──────────┈⊷
-┃★│ ${toBoldFont("Owner")} : ${toBoldFont(OWNER_NAME)}
-┃★│ ${toBoldFont("Mode")} : ${toBoldFont(MODE)}
-┃★│ ${toBoldFont("Prefix")} : ${PREFIX}
-┃★│ ${toBoldFont("Version")} : ${toBoldFont(VERSION)}
-┃★│ ${toBoldFont("Runtime")} : ${runtime(process.uptime())}
-┃★│ ${toBoldFont("Total Commands")} : ${totalCommands}
-┃★╰──────────┈⊷
-╰━━━━━━━━━━┈⊷
+        const dec = `╭─❍══ ⃟ ⃟ ⃟   ${toBoldFont(BOT_NAME)}   ⃟ ⃟ ⃟══⊷❍
+┇◆╭┉┉┉┉┉┉┉┉┉┉━┈᛭
+┇◆┋. ${toBoldFont("Owner")} : ${toBoldFont(OWNER_NAME)}
+┇◆┋. ${toBoldFont("Mode")} : ${toBoldFont(MODE)}
+┇◆┋. ${toBoldFont("Prefix")} : ${PREFIX}
+┇◆┋. ${toBoldFont("Version")} : ${toBoldFont(VERSION)}
+┇◆┋. ${toBoldFont("Runtime")} : ${runtime(process.uptime())}
+┇◆┋. ${toBoldFont("Total Commands")} : ${totalCommands}
+┇◆╰┉┉┉┉┉┉┉┉┉┉┉┉┉━┈⊷
+╰═══════════════════⍟
 
 ${menuSections}
 
-╭━━〔 *${toBoldFont("Support")}* 〕━━┈⊷
-┃❖╭─────────·๏
-┃❖┃ .${toBoldFont("owner")}
-┃❖┃ .${toBoldFont("ping")}
-┃❖┃ .${toBoldFont("menu")}
-┃❖└─────────┈⊷
-╰─────────┈⊷
+╭─❍══ ⃟ ⃟ ⃟   ${toBoldFont("SUPPORT")}   ⃟ ⃟ ⃟══⊷❍
+┇◆╭┉┉┉┉┉┉┉┉┉┉━┈᛭
+┇◆┋. _${toBoldFont("owner")}_
+┇◆┋. _${toBoldFont("ping")}_
+┇◆┋. _${toBoldFont("menu")}_
+┇◆╰┉┉┉┉┉┉┉┉┉┉┉┉┉━┈⊷
+╰═══════════════════⍟
 
 > ${toBoldFont(DESCRIPTION)}`;
 
