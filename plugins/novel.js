@@ -15,7 +15,7 @@ function getKey(from, m) {
   return `${from}:${m.sender || m.key?.participant || ''}`;
 }
 
-function splitIntoPages(text) {
+function splitText(text) {
   const words = String(text || '').split(/\s+/);
   const pages = [];
   let current = '';
@@ -23,7 +23,7 @@ function splitIntoPages(text) {
   for (const word of words) {
     if (!word) continue;
 
-    if ((current + ' ' + word).length > PAGE_SIZE && current) {
+    if (current && (current.length + word.length + 1 > PAGE_SIZE)) {
       pages.push(current);
       current = word;
     } else {
@@ -32,31 +32,79 @@ function splitIntoPages(text) {
   }
 
   if (current) pages.push(current);
-
-  return pages.length ? pages : ['اس صفحے پر متن دستیاب نہیں۔'];
+  return pages.length ? pages : ['متن دستیاب نہیں۔'];
 }
 
-async function searchBooks(query) {
+function cleanText(text = '') {
+  return String(text)
+    .replace(/سانچہ\s*:\s*PD-Pakistan/gi, '')
+    .replace(/PD-Pakistan/gi, '')
+    .replace(/^\s*سانچہ\s*:.*$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function isUsableText(text) {
+  const cleaned = cleanText(text);
+  const letters = (cleaned.match(/[\u0600-\u06FF]/g) || []).length;
+
+  return cleaned.length >= 100 && letters >= 50;
+}
+
+async function apiGet(params) {
   const response = await axios.get(API, {
     params: {
-      action: 'query',
-      list: 'search',
-      srsearch: query,
-      srnamespace: 0,
-      srlimit: 15,
-      format: 'json'
+      ...params,
+      format: 'json',
+      formatversion: 2
     },
     headers: {
-      'User-Agent': 'NAWAZ-MD-UrduNovelBot/1.0'
+      'User-Agent': 'NAWAZ-MD-UrduNovelBot/1.0 (WhatsApp bot)'
     },
     timeout: 30000
   });
 
-  return response.data?.query?.search || [];
+  return response.data;
+}
+
+async function searchBooks(query) {
+  const data = await apiGet({
+    action: 'query',
+    list: 'search',
+    srsearch: query,
+    srnamespace: 0,
+    srlimit: 20
+  });
+
+  return data?.query?.search || [];
+}
+
+async function getBookText(title) {
+  const data = await apiGet({
+    action: 'query',
+    prop: 'extracts',
+    explaintext: 1,
+    titles: title
+  });
+
+  const pages = data?.query?.pages;
+  const page = Array.isArray(pages) ? pages[0] : null;
+
+  if (!page || page.missing || !page.extract) {
+    return '';
+  }
+
+  return cleanText(page.extract);
 }
 
 async function getBookList() {
-  const queries = ['ناول', 'کہانی', 'داستان', 'اردو ادب'];
+  const queries = [
+    'اردو ناول',
+    'اردو کہانی',
+    'اردو داستان',
+    'اردو ادب'
+  ];
+
   const found = new Map();
 
   for (const query of queries) {
@@ -64,94 +112,91 @@ async function getBookList() {
       const results = await searchBooks(query);
 
       for (const item of results) {
-        if (item.title && !found.has(item.title)) {
-          found.set(item.title, {
-            title: item.title,
-            pageid: item.pageid
-          });
+        if (!item.title || found.has(item.title)) continue;
+
+        try {
+          const text = await getBookText(item.title);
+
+          if (isUsableText(text)) {
+            found.set(item.title, {
+              title: item.title,
+              pageid: item.pageid
+            });
+          }
+        } catch (error) {
+          console.log(
+            '[NOVEL] Skipped:',
+            item.title,
+            error.message
+          );
         }
+
+        if (found.size >= MAX_BOOKS) break;
       }
     } catch (error) {
-      console.error(
-        '[NAWAZ-MD NOVEL] Search error:',
-        error.response?.status || error.code || error.message
+      console.log(
+        '[NOVEL] Search failed:',
+        query,
+        error.response?.status || error.message
       );
     }
+
+    if (found.size >= MAX_BOOKS) break;
   }
 
-  return [...found.values()].slice(0, MAX_BOOKS);
+  return [...found.values()];
 }
 
-async function getBookText(title) {
-  const response = await axios.get(API, {
-    params: {
-      action: 'query',
-      prop: 'extracts',
-      explaintext: 1,
-      titles: title,
-      format: 'json'
-    },
-    headers: {
-      'User-Agent': 'NAWAZ-MD-UrduNovelBot/1.0'
-    },
-    timeout: 30000
-  });
-
-  const pages = response.data?.query?.pages;
-  const page = pages ? Object.values(pages)[0] : null;
-
-  if (!page || page.missing || !page.extract) {
-    throw new Error('Book text unavailable');
-  }
-
-  return page.extract.trim();
-}
-
-async function sendPage(reply, state, pageIndex) {
+async function showPage(reply, state, pageIndex) {
   if (pageIndex < 0 || pageIndex >= state.pages.length) {
     return reply('❌ یہ صفحہ دستیاب نہیں ہے۔');
   }
 
   state.page = pageIndex;
 
-  const message =
+  return reply(
     `📖 *${state.title}*\n` +
     `صفحہ: ${pageIndex + 1}/${state.pages.length}\n\n` +
     `${state.pages[pageIndex]}\n\n` +
     `اگلا صفحہ: .next\n` +
     `پچھلا صفحہ: .back\n` +
-    `مخصوص صفحہ: .page 3`;
-
-  return reply(message);
+    `مخصوص صفحہ: .page 3`
+  );
 }
 
 async function openBook(reply, key, title) {
   try {
-    await reply(`📚 *${title}*\n\nکتاب کا متن لوڈ ہو رہا ہے...`);
-
     const text = await getBookText(title);
+
+    if (!isUsableText(text)) {
+      return reply(
+        '❌ اس نتیجے میں اصل کتاب کا کافی متن موجود نہیں۔\n' +
+        'براہِ کرم فہرست میں سے کوئی دوسری کتاب منتخب کریں۔'
+      );
+    }
+
     const state = {
       title,
-      pages: splitIntoPages(text),
+      pages: splitText(text),
       page: 0
     };
 
     readingBooks.set(key, state);
 
-    return sendPage(reply, state, 0);
+    return showPage(reply, state, 0);
   } catch (error) {
-    console.error('[NAWAZ-MD NOVEL] Open error:', error.message);
+    console.error('[NOVEL] Open error:', error.message);
 
     return reply(
       '❌ کتاب کا متن حاصل نہیں ہو سکا۔\n' +
-      'کسی دوسری کتاب کا نام آزمائیں۔'
+      'کسی دوسری کتاب کا نام یا نمبر آزمائیں۔'
     );
   }
 }
 
 cmd({
   pattern: 'novel',
-  desc: 'Urdu novel and story reader',
+  desc: 'Urdu novel reader',
   category: 'reading',
   react: '📚',
   filename: __filename
@@ -160,40 +205,45 @@ cmd({
   const input = (q || '').trim();
 
   try {
-    // کتاب نمبر یا نام سے کھولیں
     if (input) {
       const number = Number(input);
-      const savedList = bookLists.get(key);
+      const saved = bookLists.get(key);
 
       if (
-        savedList &&
         /^\d+$/.test(input) &&
+        saved &&
         number >= 1 &&
-        number <= savedList.length
+        number <= saved.length
       ) {
-        return openBook(reply, key, savedList[number - 1].title);
+        return openBook(reply, key, saved[number - 1].title);
       }
 
       const results = await searchBooks(input);
 
-      if (!results.length) {
-        return reply(
-          '❌ کوئی کتاب نہیں ملی۔\n' +
-          'فہرست کے لیے .novel لکھیں۔'
-        );
+      for (const item of results) {
+        if (!item.title) continue;
+
+        const text = await getBookText(item.title);
+
+        if (isUsableText(text)) {
+          return openBook(reply, key, item.title);
+        }
       }
 
-      return openBook(reply, key, results[0].title);
+      return reply(
+        '❌ اس نام سے اصل اردو متن نہیں ملا۔\n' +
+        'کتابوں کی فہرست کے لیے .novel لکھیں۔'
+      );
     }
 
-    await reply('📚 اردو کتابوں کی فہرست تلاش ہو رہی ہے...');
+    await reply('📚 اردو کتابیں تلاش ہو رہی ہیں، انتظار کریں...');
 
     const books = await getBookList();
 
     if (!books.length) {
       return reply(
-        '❌ کتابوں کی فہرست حاصل نہیں ہو سکی۔\n' +
-        'براہِ کرم کچھ دیر بعد دوبارہ کوشش کریں۔'
+        '❌ کوئی قابلِ مطالعہ کتاب نہیں ملی۔\n' +
+        'سرور یا Wikisource API کا کنکشن چیک کریں۔'
       );
     }
 
@@ -206,17 +256,20 @@ cmd({
     });
 
     message +=
-      '\nکتاب کھولنے کے لیے:\n' +
-      '.novel 2\n' +
-      'یا .novel کتاب کا نام\n\n' +
+      '\nکتاب کھولنے کے لیے: .novel 2\n' +
+      'یا کتاب کا نام: .novel کتاب کا نام\n\n' +
       'اگلا صفحہ: .next\n' +
       'پچھلا صفحہ: .back\n' +
       'مخصوص صفحہ: .page 3';
 
     return reply(message);
   } catch (error) {
-    console.error('[NAWAZ-MD NOVEL] Command error:', error.message);
-    return reply('❌ کمانڈ چلانے میں مسئلہ ہوا۔ دوبارہ کوشش کریں۔');
+    console.error('[NOVEL] Command error:', error.message);
+
+    return reply(
+      '❌ کمانڈ میں مسئلہ آیا۔\n' +
+      'سرور لاگ میں [NOVEL] والی error چیک کریں۔'
+    );
   }
 });
 
@@ -227,8 +280,7 @@ cmd({
   react: '📖',
   filename: __filename
 }, async (conn, mek, m, { from, reply }) => {
-  const key = getKey(from, m);
-  const state = readingBooks.get(key);
+  const state = readingBooks.get(getKey(from, m));
 
   if (!state) {
     return reply('پہلے .novel لکھ کر کتاب کھولیں۔');
@@ -238,7 +290,7 @@ cmd({
     return reply('آپ آخری دستیاب صفحے پر ہیں۔');
   }
 
-  return sendPage(reply, state, state.page + 1);
+  return showPage(reply, state, state.page + 1);
 });
 
 cmd({
@@ -248,8 +300,7 @@ cmd({
   react: '📖',
   filename: __filename
 }, async (conn, mek, m, { from, reply }) => {
-  const key = getKey(from, m);
-  const state = readingBooks.get(key);
+  const state = readingBooks.get(getKey(from, m));
 
   if (!state) {
     return reply('پہلے .novel لکھ کر کتاب کھولیں۔');
@@ -259,28 +310,27 @@ cmd({
     return reply('آپ پہلے صفحے پر ہیں۔');
   }
 
-  return sendPage(reply, state, state.page - 1);
+  return showPage(reply, state, state.page - 1);
 });
 
 cmd({
   pattern: 'page',
-  desc: 'Open a specific novel page',
+  desc: 'Open specific novel page',
   category: 'reading',
   react: '📖',
   filename: __filename
 }, async (conn, mek, m, { from, q, reply }) => {
-  const key = getKey(from, m);
-  const state = readingBooks.get(key);
-  const pageNumber = Number((q || '').trim());
+  const state = readingBooks.get(getKey(from, m));
+  const number = Number((q || '').trim());
 
   if (!state) {
     return reply('پہلے .novel لکھ کر کتاب کھولیں۔');
   }
 
   if (
-    !Number.isInteger(pageNumber) ||
-    pageNumber < 1 ||
-    pageNumber > state.pages.length
+    !Number.isInteger(number) ||
+    number < 1 ||
+    number > state.pages.length
   ) {
     return reply(
       `صفحہ نمبر 1 سے ${state.pages.length} تک درج کریں۔\n` +
@@ -288,6 +338,6 @@ cmd({
     );
   }
 
-  return sendPage(reply, state, pageNumber - 1);
+  return showPage(reply, state, number - 1);
 });
-                              
+    
