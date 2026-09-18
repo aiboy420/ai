@@ -1,171 +1,113 @@
-// forward.js - ESM Version
 import { fileURLToPath } from 'url';
 import { cmd } from '../command.js';
 
 const __filename = fileURLToPath(import.meta.url);
 
 cmd({
-    pattern: "forward",
-    alias: ["fyd", "fod", "frd"],
-    desc: "Forward replied message to groups",
-    category: "owner",
-    react: "📤",
+    pattern: 'forward',
+    alias: ['fyd', 'fod', 'frd'],
+    desc: 'Forward original replied message to groups',
+    category: 'owner',
+    react: '📤',
     filename: __filename
-},
-async (conn, mek, m, { from, isCreator, reply, args }) => {
+}, async (conn, mek, m, { from, isCreator, reply }) => {
     try {
-        // ==================== OWNER ONLY ====================
+        // OWNER ONLY
         if (!isCreator) {
-            return reply("📛 This is an owner command.");
+            return reply('📛 This is an owner command.');
         }
 
-        // ==================== CHECK REPLY ====================
+        // CHECK REPLIED MESSAGE
         if (!m.quoted) {
             return reply(
-                "🍁 Please reply to a Video, Image, Text or Link message.\n\n" +
-                "Example:\n" +
-                ".forward\n" +
-                ".forward/2\n" +
-                ".fyd/3"
+                '🍁 Please reply to a Video, Image, Text or Link message.\n\n' +
+                'Example:\n' +
+                '.forward\n' +
+                '.forward/2\n' +
+                '.fyd/3'
             );
         }
 
-        // ==================== GROUP COUNT ====================
-        // .forward/2 or .fyd/3
-        let count = null;
-
-        const commandText = (m.body || m.text || "").trim();
-
+        // GET GROUP LIMIT
+        const commandText = (m.body || m.text || '').trim();
         const slashMatch = commandText.match(/\/(\d+)$/);
 
-        if (slashMatch) {
-            count = parseInt(slashMatch[1]);
+        let count = null;
 
-            if (!count || count < 1) {
-                return reply("❌ Please enter a valid group number.");
+        if (slashMatch) {
+            count = Number.parseInt(slashMatch[1], 10);
+
+            if (!Number.isSafeInteger(count) || count < 1) {
+                return reply('❌ Please enter a valid group number.');
             }
         }
 
-        // ==================== GET ALL GROUPS ====================
+        // GET ALL PARTICIPATING GROUPS
         const groups = await conn.groupFetchAllParticipating();
         let groupIds = Object.keys(groups || {});
 
         if (!groupIds.length) {
-            return reply("❌ No groups found.");
+            return reply('❌ No groups found.');
         }
 
-        // If count is specified, limit groups
+        // LIMIT GROUPS IF SPECIFIED
         if (count !== null) {
             groupIds = groupIds.slice(0, count);
         }
 
-        // ==================== GET QUOTED MESSAGE ====================
+        if (!groupIds.length) {
+            return reply('❌ No groups available to forward.');
+        }
+
+        // GET ORIGINAL QUOTED MESSAGE
         const quoted = m.quoted;
 
-        let messageContent = null;
+        // Use the original message object where available.
+        const originalMessage =
+            quoted.fakeObj ||
+            quoted.message ||
+            quoted;
 
-        // ==================== VIDEO ====================
-        if (quoted.mtype === "videoMessage") {
-            const buffer = await quoted.download();
-
-            messageContent = {
-                video: buffer,
-                mimetype: quoted.msg?.mimetype || "video/mp4",
-                caption: quoted.msg?.caption || ""
-            };
-        }
-
-        // ==================== IMAGE ====================
-        else if (quoted.mtype === "imageMessage") {
-            const buffer = await quoted.download();
-
-            messageContent = {
-                image: buffer,
-                mimetype: quoted.msg?.mimetype || "image/jpeg",
-                caption: quoted.msg?.caption || ""
-            };
-        }
-
-        // ==================== AUDIO ====================
-        else if (quoted.mtype === "audioMessage") {
-            const buffer = await quoted.download();
-
-            messageContent = {
-                audio: buffer,
-                mimetype: quoted.msg?.mimetype || "audio/mp4",
-                ptt: quoted.msg?.ptt || false
-            };
-        }
-
-        // ==================== DOCUMENT ====================
-        else if (quoted.mtype === "documentMessage") {
-            const buffer = await quoted.download();
-
-            messageContent = {
-                document: buffer,
-                mimetype: quoted.msg?.mimetype || "application/octet-stream",
-                fileName: quoted.msg?.fileName || "file"
-            };
-        }
-
-        // ==================== TEXT / LINK ====================
-        else if (
-            quoted.mtype === "conversation" ||
-            quoted.mtype === "extendedTextMessage" ||
-            quoted.mtype === "text"
-        ) {
-            const text =
-                quoted.text ||
-                quoted.msg?.text ||
-                quoted.msg?.conversation ||
-                "";
-
-            if (!text.trim()) {
-                return reply("❌ Empty text message.");
-            }
-
-            messageContent = {
-                text: text
-            };
-        }
-
-        // ==================== UNSUPPORTED ====================
-        else {
+        // CHECK FOR COPY/FORWARD SUPPORT
+        if (typeof conn.copyNForward !== 'function') {
             return reply(
-                "❌ Supported messages:\n\n" +
-                "🎥 Video\n" +
-                "🖼️ Image\n" +
-                "📝 Text\n" +
-                "🔗 Link\n" +
-                "🎵 Audio\n" +
-                "📄 Document"
+                '❌ Your WhatsApp connection does not support copyNForward().\n' +
+                'Please check your Baileys connection setup.'
             );
         }
 
-        if (!messageContent) {
-            return reply("❌ Unable to read the replied message.");
-        }
-
-        // ==================== SEND TO GROUPS ====================
+        // SEND TO GROUPS
         let sent = 0;
         let failed = 0;
 
         for (const groupId of groupIds) {
             try {
-                await conn.sendMessage(groupId, messageContent);
+                // Forward original message to preserve
+                // media, caption, text and supported content.
+                await conn.copyNForward(
+                    groupId,
+                    originalMessage,
+                    true
+                );
 
                 sent++;
 
-                // Small delay
-                await new Promise(resolve => setTimeout(resolve, 500));
-
             } catch (error) {
                 failed++;
-                console.error(`Forward failed: ${groupId}`, error);
+
+                console.error(
+                    `Forward failed: ${groupId}`,
+                    error
+                );
             }
+
+            // Small delay between groups
+            await new Promise(resolve =>
+                setTimeout(resolve, 500)
+            );
         }
 
-        // ==================== RESULT ====================
+        // RESULT
         await conn.sendMessage(
             from,
             {
@@ -178,15 +120,16 @@ async (conn, mek, m, { from, isCreator, reply, args }) => {
             { quoted: mek }
         );
 
-    } catch (e) {
-        console.error("Error in forward command:", e);
+    } catch (error) {
+        console.error('Error in forward command:', error);
 
         await conn.sendMessage(
             from,
             {
-                text: `❌ Error: ${e.message}`
+                text: `❌ Error: ${error.message}`
             },
             { quoted: mek }
         );
     }
 });
+    
