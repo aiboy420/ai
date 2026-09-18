@@ -6,9 +6,9 @@ const __filename = fileURLToPath(import.meta.url);
 cmd({
     pattern: "forward",
     alias: ["fyd", "fod", "frd"],
-    desc: "Forward replied message to groups",
+    desc: "Forward replied message to groups with timer",
     category: "owner",
-    react: "📤",
+    react: "🏃",
     filename: __filename
 },
 async (conn, mek, m, { from, isCreator, reply }) => {
@@ -22,18 +22,22 @@ async (conn, mek, m, { from, isCreator, reply }) => {
         if (!m.quoted) {
             return reply(
                 "🍁 Please reply to a Video, Image, Text or Link message.\n\n" +
-                "Example:\n" +
+                "Examples:\n" +
                 ".forward\n" +
                 ".forward/2\n" +
-                ".fyd/3"
+                ".fyd/2 5M\n" +
+                ".fyd/2 5H\n" +
+                ".forward 15M"
             );
         }
 
-        // GROUP COUNT - ORIGINAL
+        // COMMAND TEXT
+        const commandText = (m.body || m.text || "").trim();
+
+        // GROUP COUNT
         let count = null;
 
-        const commandText = (m.body || m.text || "").trim();
-        const slashMatch = commandText.match(/\/(\d+)$/);
+        const slashMatch = commandText.match(/\/(\d+)/);
 
         if (slashMatch) {
             count = parseInt(slashMatch[1], 10);
@@ -43,16 +47,29 @@ async (conn, mek, m, { from, isCreator, reply }) => {
             }
         }
 
-        // GET ALL GROUPS - ORIGINAL
-        const groups = await conn.groupFetchAllParticipating();
-        let groupIds = Object.keys(groups || {});
+        // TIMER SYSTEM
+        let timerMs = 0;
+        let timerText = "";
 
-        if (!groupIds.length) {
-            return reply("❌ No groups found.");
-        }
+        const timerMatch = commandText.match(
+            /(?:^|\s)(\d+)(M|H)\s*$/i
+        );
 
-        if (count !== null) {
-            groupIds = groupIds.slice(0, count);
+        if (timerMatch) {
+            const timerValue = parseInt(timerMatch[1], 10);
+            const timerUnit = timerMatch[2].toUpperCase();
+
+            if (!timerValue || timerValue < 1) {
+                return reply("❌ Please enter a valid timer.");
+            }
+
+            if (timerUnit === "M") {
+                timerMs = timerValue * 60 * 1000;
+                timerText = `${timerValue} minute(s)`;
+            } else {
+                timerMs = timerValue * 60 * 60 * 1000;
+                timerText = `${timerValue} hour(s)`;
+            }
         }
 
         // GET QUOTED MESSAGE
@@ -81,7 +98,7 @@ async (conn, mek, m, { from, isCreator, reply }) => {
             messageContent = {
                 video: buffer,
                 mimetype: msg.mimetype || "video/mp4",
-                caption: caption
+                caption
             };
         }
 
@@ -96,7 +113,7 @@ async (conn, mek, m, { from, isCreator, reply }) => {
             messageContent = {
                 image: buffer,
                 mimetype: msg.mimetype || "image/jpeg",
-                caption: caption
+                caption
             };
         }
 
@@ -127,7 +144,7 @@ async (conn, mek, m, { from, isCreator, reply }) => {
                 document: buffer,
                 mimetype: msg.mimetype || "application/octet-stream",
                 fileName: msg.fileName || "file",
-                caption: caption
+                caption
             };
         }
 
@@ -148,7 +165,7 @@ async (conn, mek, m, { from, isCreator, reply }) => {
             }
 
             messageContent = {
-                text: text
+                text
             };
         }
 
@@ -169,45 +186,79 @@ async (conn, mek, m, { from, isCreator, reply }) => {
             return reply("❌ Unable to read the replied message.");
         }
 
-        // SEND TO GROUPS - ORIGINAL METHOD
-        let sent = 0;
-        let failed = 0;
+        // GET ALL GROUPS
+        const groups = await conn.groupFetchAllParticipating();
+        let groupIds = Object.keys(groups || {});
 
-        for (const groupId of groupIds) {
-            try {
-                await conn.sendMessage(
-                    groupId,
-                    messageContent
-                );
-
-                sent++;
-
-                await new Promise(resolve =>
-                    setTimeout(resolve, 500)
-                );
-
-            } catch (error) {
-                failed++;
-
-                console.error(
-                    `Forward failed: ${groupId}`,
-                    error
-                );
-            }
+        if (!groupIds.length) {
+            return reply("❌ No groups found.");
         }
 
-        // RESULT - ORIGINAL
-        await conn.sendMessage(
-            from,
-            {
-                text:
-                    `📤 *FORWARD COMPLETED*\n\n` +
-                    `✅ Sent: ${sent}\n` +
-                    `❌ Failed: ${failed}\n` +
-                    `👥 Groups: ${groupIds.length}`
-            },
-            { quoted: mek }
-        );
+        if (count !== null) {
+            groupIds = groupIds.slice(0, count);
+        }
+
+        // FORWARD FUNCTION
+        const startForward = async () => {
+            let sent = 0;
+            let failed = 0;
+
+            for (const groupId of groupIds) {
+                try {
+                    await conn.sendMessage(
+                        groupId,
+                        messageContent
+                    );
+
+                    sent++;
+
+                    await new Promise(resolve =>
+                        setTimeout(resolve, 500)
+                    );
+
+                } catch (error) {
+                    failed++;
+
+                    console.error(
+                        `Forward failed: ${groupId}`,
+                        error
+                    );
+                }
+            }
+
+            await conn.sendMessage(
+                from,
+                {
+                    text:
+                        `📤 *FORWARD COMPLETED*\n\n` +
+                        `✅ Sent: ${sent}\n` +
+                        `❌ Failed: ${failed}\n` +
+                        `👥 Groups: ${groupIds.length}`
+                },
+                { quoted: mek }
+            );
+        };
+
+        // TIMER ENABLED
+        if (timerMs > 0) {
+            await reply(
+                `⏰ *FORWARD TIMER SET*\n\n` +
+                `🕒 Time: ${timerText}\n` +
+                `👥 Groups: ${groupIds.length}\n\n` +
+                `✅ Your message will be forwarded automatically after the timer.`
+            );
+
+            setTimeout(() => {
+                startForward().catch(error => {
+                    console.error("Scheduled forward error:", error);
+                });
+            }, timerMs);
+
+            return;
+        }
+
+        // NO TIMER - ORIGINAL IMMEDIATE FORWARD
+        await startForward();
 
     } catch (e) {
         console.error("Error in forward command:", e);
