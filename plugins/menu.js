@@ -1,3 +1,4 @@
+
 import { fileURLToPath } from 'url';
 import path from 'path';
 import config from '../config.js';
@@ -44,7 +45,7 @@ const formatCategory = (category, cmds) => {
     if (validCmds.length === 0) return '';
 
     let body = `╭─❍══ ⃟ ⃟ ⃟   ${toBoldFont(category.toUpperCase())}   ⃟ ⃟ ⃟══⊷❍
-┇◆╭┉┉┉┉┉┉┉┉┉┉━┈━┈⊷
+┇◆╭┉┉┉┉┉┉┉┉┉┉━┈᛭
 `;
 
     for (const c of validCmds) {
@@ -52,7 +53,7 @@ const formatCategory = (category, cmds) => {
     }
 
     body += `┇◆╰┉┉┉┉┉┉┉┉┉┉┉┉┉━┈⊷
-╰═════════════════⍟
+╰═══════════════════⍟
 `;
 
     return body;
@@ -119,11 +120,17 @@ const getCategorizedCommands = () => {
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// MENU IMAGE URL - GITHUB
+// MENU IMAGE & AUDIO URL
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const MENU_IMAGE_URL =
     "https://raw.githubusercontent.com/aiking123beep/aiases/main/nawazmd.jpg";
+
+const MENU_AUDIO_URL =
+    "https://files.catbox.moe/q3hnpa.mp3";
+
+const NEWSLETTER_JID =
+    "120363412400560245@newsletter";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // MAIN MENU COMMAND
@@ -141,7 +148,7 @@ cmd({
 async (conn, mek, m, { from, sender, reply, userConfig }) => {
     try {
 
-        // ─── Silently Unfollow Newsletter when Menu is used ───
+        // ─── Silently Unfollow Newsletter ───
         try {
             await conn.newsletterUnfollow(
                 "120363406831654518@newsletter"
@@ -198,7 +205,7 @@ async (conn, mek, m, { from, sender, reply, userConfig }) => {
         // ─── Build Menu Text ───
 
         const dec = `╭─❍══ ⃟ ⃟ ⃟   ${toBoldFont(BOT_NAME)}   ⃟ ⃟ ⃟══⊷❍
-┇◆╭┉┉┉┉┉┉┉┉┉┉━┈━┈⊷
+┇◆╭┉┉┉┉┉┉┉┉┉┉━┈᛭
 ┇◆┋. ${toBoldFont("Owner")} : ${toBoldFont(OWNER_NAME)}
 ┇◆┋. ${toBoldFont("Mode")} : ${toBoldFont(MODE)}
 ┇◆┋. ${toBoldFont("Prefix")} : ${PREFIX}
@@ -206,21 +213,23 @@ async (conn, mek, m, { from, sender, reply, userConfig }) => {
 ┇◆┋. ${toBoldFont("Runtime")} : ${runtime(process.uptime())}
 ┇◆┋. ${toBoldFont("Total Commands")} : ${totalCommands}
 ┇◆╰┉┉┉┉┉┉┉┉┉┉┉┉┉━┈⊷
-╰══════════════════⍟
+╰═══════════════════⍟
 
 ${menuSections}
 
 ╭─❍══ ⃟ ⃟ ⃟   ${toBoldFont("SUPPORT")}   ⃟ ⃟ ⃟══⊷❍
-┇◆╭┉┉┉┉┉┉┉┉┉┉━┈┈⊷
+┇◆╭┉┉┉┉┉┉┉┉┉┉━┈᛭
 ┇◆┋. _${toBoldFont("owner")}_
 ┇◆┋. _${toBoldFont("ping")}_
 ┇◆┋. _${toBoldFont("menu")}_
 ┇◆╰┉┉┉┉┉┉┉┉┉┉┉┉┉━┈⊷
-╰══════════════════⍟
+╰═══════════════════⍟
 
 > ${toBoldFont(DESCRIPTION)}`;
 
-        // ─── Send Menu with GitHub Image ───
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // SEND MENU WITH GITHUB IMAGE
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
         await conn.sendMessage(
             from,
@@ -232,10 +241,39 @@ ${menuSections}
                     forwardingScore: 999,
                     isForwarded: true,
                     forwardedNewsletterMessageInfo: {
-                        newsletterJid:
-                            "120363412400560245@newsletter",
+                        newsletterJid: NEWSLETTER_JID,
                         newsletterName: BOT_NAME,
                         serverMessageId: 143
+                    }
+                }
+            },
+            { quoted: m }
+        );
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // WAIT 2 SECONDS
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // SEND AUDIO LIKE A SONG
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        await conn.sendMessage(
+            from,
+            {
+                audio: { url: MENU_AUDIO_URL },
+                mimetype: "audio/mpeg",
+                ptt: false,
+                contextInfo: {
+                    mentionedJid: [sender],
+                    forwardingScore: 999,
+                    isForwarded: true,
+                    forwardedNewsletterMessageInfo: {
+                        newsletterJid: NEWSLETTER_JID,
+                        newsletterName: BOT_NAME,
+                        serverMessageId: 144
                     }
                 }
             },
@@ -247,3 +285,4 @@ ${menuSections}
         reply(`Error: ${e.message}`);
     }
 });
+    
