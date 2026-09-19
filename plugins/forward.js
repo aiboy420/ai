@@ -3,22 +3,29 @@ import { cmd } from '../command.js';
 
 const __filename = fileURLToPath(import.meta.url);
 
+// REPEATING FORWARD TIMER
+let forwardTimer = null;
+let forwardCancelled = false;
+let forwardRunning = false;
+let forwardJobId = 0;
+
+// FORWARD COMMAND
 cmd({
     pattern: "forward",
     alias: ["fyd", "fod", "frd"],
-    desc: "Forward replied message to groups with timer",
+    desc: "Forward replied message to groups with repeating timer",
     category: "owner",
     react: "🏃",
     filename: __filename
 },
 async (conn, mek, m, { from, isCreator, reply }) => {
     try {
-        // OWNER ONLY - ORIGINAL
+        // OWNER ONLY
         if (!isCreator) {
             return reply("📛 This is an owner command.");
         }
 
-        // CHECK REPLY - ORIGINAL
+        // CHECK REPLY
         if (!m.quoted) {
             return reply(
                 "🍁 Please reply to a Video, Image, Text or Link message.\n\n" +
@@ -27,7 +34,8 @@ async (conn, mek, m, { from, isCreator, reply }) => {
                 ".forward/2\n" +
                 ".fyd/2 5M\n" +
                 ".fyd/2 5H\n" +
-                ".forward 15M"
+                ".forward 15M\n\n" +
+                "🛑 Stop: .forwardstop"
             );
         }
 
@@ -164,9 +172,7 @@ async (conn, mek, m, { from, isCreator, reply }) => {
                 return reply("❌ Empty text message.");
             }
 
-            messageContent = {
-                text
-            };
+            messageContent = { text };
         }
 
         // UNSUPPORTED
@@ -199,66 +205,129 @@ async (conn, mek, m, { from, isCreator, reply }) => {
         }
 
         // FORWARD FUNCTION
-        const startForward = async () => {
+        const startForward = async (jobId) => {
+            if (
+                forwardCancelled ||
+                jobId !== forwardJobId ||
+                forwardRunning
+            ) {
+                return;
+            }
+
+            forwardRunning = true;
+
             let sent = 0;
             let failed = 0;
 
-            for (const groupId of groupIds) {
-                try {
+            try {
+                for (const groupId of groupIds) {
+                    if (
+                        forwardCancelled ||
+                        jobId !== forwardJobId
+                    ) {
+                        break;
+                    }
+
+                    try {
+                        await conn.sendMessage(
+                            groupId,
+                            messageContent
+                        );
+
+                        sent++;
+
+                        await new Promise(resolve =>
+                            setTimeout(resolve, 500)
+                        );
+
+                    } catch (error) {
+                        failed++;
+
+                        console.error(
+                            `Forward failed: ${groupId}`,
+                            error
+                        );
+                    }
+                }
+
+                if (
+                    !forwardCancelled &&
+                    jobId === forwardJobId
+                ) {
                     await conn.sendMessage(
-                        groupId,
-                        messageContent
-                    );
-
-                    sent++;
-
-                    await new Promise(resolve =>
-                        setTimeout(resolve, 500)
-                    );
-
-                } catch (error) {
-                    failed++;
-
-                    console.error(
-                        `Forward failed: ${groupId}`,
-                        error
+                        from,
+                        {
+                            text:
+                                `📤 *FORWARD CYCLE COMPLETED*\n\n` +
+                                `✅ Sent: ${sent}\n` +
+                                `❌ Failed: ${failed}\n` +
+                                `👥 Groups: ${groupIds.length}\n\n` +
+                                `🔁 Automatic forwarding is still active.`
+                        },
+                        { quoted: mek }
                     );
                 }
-            }
 
-            await conn.sendMessage(
-                from,
-                {
-                    text:
-                        `📤 *FORWARD COMPLETED*\n\n` +
-                        `✅ Sent: ${sent}\n` +
-                        `❌ Failed: ${failed}\n` +
-                        `👥 Groups: ${groupIds.length}`
-                },
-                { quoted: mek }
-            );
+            } finally {
+                forwardRunning = false;
+            }
         };
 
-        // TIMER ENABLED
+        // TIMER ENABLED - REPEAT
         if (timerMs > 0) {
+
+            // CANCEL PREVIOUS TIMER
+            if (forwardTimer) {
+                clearTimeout(forwardTimer);
+                forwardTimer = null;
+            }
+
+            // NEW JOB
+            forwardCancelled = false;
+            const jobId = ++forwardJobId;
+
             await reply(
-                `⏰ *FORWARD TIMER SET*\n\n` +
-                `🕒 Time: ${timerText}\n` +
+                `⏰ *REPEATING FORWARD TIMER SET*\n\n` +
+                `🕒 Interval: ${timerText}\n` +
                 `👥 Groups: ${groupIds.length}\n\n` +
-                `✅ Your message will be forwarded automatically after the timer.`
+                `✅ First forward starts after ${timerText}.\n` +
+                `🔁 The same post will repeat after every interval.\n\n` +
+                `🛑 Stop: .forwardstop`
             );
 
-            setTimeout(() => {
-                startForward().catch(error => {
-                    console.error("Scheduled forward error:", error);
-                });
-            }, timerMs);
+            // REPEAT AFTER EACH COMPLETED CYCLE
+            const scheduleNext = async () => {
+                if (
+                    forwardCancelled ||
+                    jobId !== forwardJobId
+                ) {
+                    return;
+                }
+
+                await startForward(jobId);
+
+                if (
+                    !forwardCancelled &&
+                    jobId === forwardJobId
+                ) {
+                    forwardTimer = setTimeout(
+                        scheduleNext,
+                        timerMs
+                    );
+                }
+            };
+
+            // FIRST RUN AFTER THE REQUESTED DELAY
+            forwardTimer = setTimeout(
+                scheduleNext,
+                timerMs
+            );
 
             return;
         }
 
-        // NO TIMER - ORIGINAL IMMEDIATE FORWARD
-        await startForward();
+        // NO TIMER - IMMEDIATE FORWARD
+        await startForward(forwardJobId);
 
     } catch (e) {
         console.error("Error in forward command:", e);
@@ -272,4 +341,32 @@ async (conn, mek, m, { from, isCreator, reply }) => {
         );
     }
 });
-                
+
+// STOP FORWARD COMMAND
+cmd({
+    pattern: "forwardstop",
+    alias: ["stopforward", "fstop"],
+    desc: "Stop repeating forward timer",
+    category: "owner",
+    filename: __filename
+},
+async (conn, mek, m, { isCreator, reply }) => {
+    if (!isCreator) {
+        return reply("📛 This is an owner command.");
+    }
+
+    // CANCEL SCHEDULED TIMER
+    if (forwardTimer) {
+        clearTimeout(forwardTimer);
+        forwardTimer = null;
+    }
+
+    // INVALIDATE THE CURRENT JOB
+    forwardCancelled = true;
+    forwardJobId++;
+
+    return reply(
+        "🛑 *FORWARD TIMER STOPPED*\n\n" +
+        "✅ Automatic forwarding has been stopped."
+    );
+});
