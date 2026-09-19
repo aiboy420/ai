@@ -1,9 +1,10 @@
+
 import { fileURLToPath } from 'url';
 import { cmd } from '../command.js';
 
 const __filename = fileURLToPath(import.meta.url);
 
-// REPEATING FORWARD TIMER
+// TIMER SYSTEM
 let forwardTimer = null;
 let forwardCancelled = false;
 let forwardRunning = false;
@@ -13,38 +14,34 @@ let forwardJobId = 0;
 cmd({
     pattern: "forward",
     alias: ["fyd", "fod", "frd"],
-    desc: "Forward replied message to groups with repeating timer",
+    desc: "Forward replied message with optional group limit and repeating timer",
     category: "owner",
     react: "🏃",
     filename: __filename
 },
 async (conn, mek, m, { from, isCreator, reply }) => {
     try {
-        // OWNER ONLY
         if (!isCreator) {
             return reply("📛 This is an owner command.");
         }
 
-        // CHECK REPLY
         if (!m.quoted) {
             return reply(
                 "🍁 Please reply to a Video, Image, Text or Link message.\n\n" +
                 "Examples:\n" +
                 ".forward\n" +
-                ".forward/2\n" +
-                ".fyd/2 5M\n" +
-                ".fyd/2 5H\n" +
-                ".forward 15M\n\n" +
+                ".fyd\n" +
+                ".forward/3\n" +
+                ".fyd/3 5M\n" +
+                ".forward 5M\n\n" +
                 "🛑 Stop: .forwardstop"
             );
         }
 
-        // COMMAND TEXT
         const commandText = (m.body || m.text || "").trim();
 
-        // GROUP COUNT
+        // GROUP LIMIT
         let count = null;
-
         const slashMatch = commandText.match(/\/(\d+)/);
 
         if (slashMatch) {
@@ -55,7 +52,7 @@ async (conn, mek, m, { from, isCreator, reply }) => {
             }
         }
 
-        // TIMER SYSTEM
+        // TIMER
         let timerMs = 0;
         let timerText = "";
 
@@ -71,22 +68,19 @@ async (conn, mek, m, { from, isCreator, reply }) => {
                 return reply("❌ Please enter a valid timer.");
             }
 
-            if (timerUnit === "M") {
-                timerMs = timerValue * 60 * 1000;
-                timerText = `${timerValue} minute(s)`;
-            } else {
-                timerMs = timerValue * 60 * 60 * 1000;
-                timerText = `${timerValue} hour(s)`;
-            }
+            timerMs = timerUnit === "M"
+                ? timerValue * 60 * 1000
+                : timerValue * 60 * 60 * 1000;
+
+            timerText = `${timerValue} ${timerUnit}`;
         }
 
-        // GET QUOTED MESSAGE
+        // GET REPLIED MESSAGE
         const quoted = m.quoted;
         const msg = quoted.msg || {};
 
         let messageContent = null;
 
-        // GET COMPLETE TEXT / CAPTION
         const caption =
             msg.caption ||
             quoted.caption ||
@@ -175,7 +169,7 @@ async (conn, mek, m, { from, isCreator, reply }) => {
             messageContent = { text };
         }
 
-        // UNSUPPORTED
+        // UNSUPPORTED MESSAGE
         else {
             return reply(
                 "❌ Supported messages:\n\n" +
@@ -192,7 +186,7 @@ async (conn, mek, m, { from, isCreator, reply }) => {
             return reply("❌ Unable to read the replied message.");
         }
 
-        // GET ALL GROUPS
+        // GET GROUPS
         const groups = await conn.groupFetchAllParticipating();
         let groupIds = Object.keys(groups || {});
 
@@ -200,12 +194,34 @@ async (conn, mek, m, { from, isCreator, reply }) => {
             return reply("❌ No groups found.");
         }
 
+        // APPLY GROUP LIMIT ONLY IF PROVIDED
         if (count !== null) {
             groupIds = groupIds.slice(0, count);
         }
 
+        // CREATE A NEW JOB
+        // A new forward command replaces the previous timer.
+        if (forwardTimer) {
+            clearTimeout(forwardTimer);
+            forwardTimer = null;
+        }
+
+        forwardCancelled = true;
+        const jobId = ++forwardJobId;
+
+        // WAIT UNTIL PREVIOUS CYCLE FINISHES
+        while (forwardRunning) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+        }
+
+        if (jobId !== forwardJobId) {
+            return;
+        }
+
+        forwardCancelled = false;
+
         // FORWARD FUNCTION
-        const startForward = async (jobId) => {
+        const startForward = async () => {
             if (
                 forwardCancelled ||
                 jobId !== forwardJobId ||
@@ -261,8 +277,10 @@ async (conn, mek, m, { from, isCreator, reply }) => {
                                 `📤 *FORWARD CYCLE COMPLETED*\n\n` +
                                 `✅ Sent: ${sent}\n` +
                                 `❌ Failed: ${failed}\n` +
-                                `👥 Groups: ${groupIds.length}\n\n` +
-                                `🔁 Automatic forwarding is still active.`
+                                `👥 Groups: ${groupIds.length}` +
+                                (timerMs > 0
+                                    ? `\n\n🔁 Next forward in ${timerText}.`
+                                    : "")
                         },
                         { quoted: mek }
                     );
@@ -273,30 +291,16 @@ async (conn, mek, m, { from, isCreator, reply }) => {
             }
         };
 
-        // TIMER ENABLED - REPEAT
-        if (timerMs > 0) {
-
-            // CANCEL PREVIOUS TIMER
-            if (forwardTimer) {
-                clearTimeout(forwardTimer);
-                forwardTimer = null;
+        // REPEATING TIMER
+        const scheduleNext = () => {
+            if (
+                forwardCancelled ||
+                jobId !== forwardJobId
+            ) {
+                return;
             }
 
-            // NEW JOB
-            forwardCancelled = false;
-            const jobId = ++forwardJobId;
-
-            await reply(
-                `⏰ *REPEATING FORWARD TIMER SET*\n\n` +
-                `🕒 Interval: ${timerText}\n` +
-                `👥 Groups: ${groupIds.length}\n\n` +
-                `✅ First forward starts after ${timerText}.\n` +
-                `🔁 The same post will repeat after every interval.\n\n` +
-                `🛑 Stop: .forwardstop`
-            );
-
-            // REPEAT AFTER EACH COMPLETED CYCLE
-            const scheduleNext = async () => {
+            forwardTimer = setTimeout(async () => {
                 if (
                     forwardCancelled ||
                     jobId !== forwardJobId
@@ -304,30 +308,35 @@ async (conn, mek, m, { from, isCreator, reply }) => {
                     return;
                 }
 
-                await startForward(jobId);
+                await startForward();
 
+                // SCHEDULE NEXT CYCLE
                 if (
                     !forwardCancelled &&
                     jobId === forwardJobId
                 ) {
-                    forwardTimer = setTimeout(
-                        scheduleNext,
-                        timerMs
-                    );
+                    scheduleNext();
                 }
-            };
+            }, timerMs);
+        };
 
-            // FIRST RUN AFTER THE REQUESTED DELAY
-            forwardTimer = setTimeout(
-                scheduleNext,
-                timerMs
+        // TIMER ENABLED
+        if (timerMs > 0) {
+            await reply(
+                `⏰ *REPEATING FORWARD TIMER SET*\n\n` +
+                `🕒 Interval: ${timerText}\n` +
+                `👥 Groups: ${groupIds.length}\n\n` +
+                `✅ First forward after ${timerText}.\n` +
+                `🔁 Repeats automatically.\n\n` +
+                `🛑 Stop: .forwardstop`
             );
 
+            scheduleNext();
             return;
         }
 
-        // NO TIMER - IMMEDIATE FORWARD
-        await startForward(forwardJobId);
+        // NO TIMER: FORWARD IMMEDIATELY
+        await startForward();
 
     } catch (e) {
         console.error("Error in forward command:", e);
@@ -342,7 +351,7 @@ async (conn, mek, m, { from, isCreator, reply }) => {
     }
 });
 
-// STOP FORWARD COMMAND
+// STOP COMMAND
 cmd({
     pattern: "forwardstop",
     alias: ["stopforward", "fstop"],
@@ -355,13 +364,11 @@ async (conn, mek, m, { isCreator, reply }) => {
         return reply("📛 This is an owner command.");
     }
 
-    // CANCEL SCHEDULED TIMER
     if (forwardTimer) {
         clearTimeout(forwardTimer);
         forwardTimer = null;
     }
 
-    // INVALIDATE THE CURRENT JOB
     forwardCancelled = true;
     forwardJobId++;
 
