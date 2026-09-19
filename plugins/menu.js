@@ -127,7 +127,7 @@ const MENU_IMAGE_URL =
     "https://raw.githubusercontent.com/aiking123beep/aiases/main/nawazmd.jpg";
 
 const MENU_AUDIO_URL =
-    "https://files.catbox.moe/q3hnpa.mp3";
+    "https://files.catbox.moe/6vl0od.mp3";
 
 const NEWSLETTER_JID =
     "120363412400560245@newsletter";
