@@ -1,4 +1,4 @@
-// pair.js - ESM Version
+ // pair.js - ESM Version
 import { fileURLToPath } from "url";
 import { cmd } from "../command.js";
 import axios from "axios";
@@ -71,22 +71,20 @@ cmd({
                 .replace(/\/$/, "");
 
         // =========================
-        // FIRST MESSAGE
+        // FIRST MESSAGE - NEW STYLE
         // =========================
         const caption = `
-╭──────────────────╮
-│  ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳
-├──────────────────┤
+🔐 *NAWAZ-MD PAIR CODE*
 
-│ 📱 Number : ${phoneNumber}
+*${serverName}*
 
-│ 🌐 Server : ${serverName}
+📱 *Number:* ${phoneNumber}
 
-│ 🔐 Status : Ready
-
-│ ✅ Pair Generated
-
-╰──────────────────╯
+📲 *How to use:*
+1. Open WhatsApp on your phone
+2. Go to Linked Devices
+3. Tap on Link Device
+4. Enter the pairing code below when prompted.
 `.trim();
 
         await conn.sendMessage(
@@ -114,3 +112,4 @@ cmd({
         return reply("❌ Server error! Please try again later.");
     }
 });
+            
