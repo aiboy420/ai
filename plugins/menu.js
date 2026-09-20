@@ -1,4 +1,3 @@
-
 import { fileURLToPath } from 'url';
 import path from 'path';
 import config from '../config.js';
@@ -45,7 +44,7 @@ const formatCategory = (category, cmds) => {
     if (validCmds.length === 0) return '';
 
     let body = `╭─❍══ ⃟ ⃟ ⃟   ${toBoldFont(category.toUpperCase())}   ⃟ ⃟ ⃟══⊷❍
-┇◆╭┉┉┉┉┉┉┉┉┉┉━┈᛭
+┇◆╭┉┉┉┉┉┉┉┉┉┉━⊷
 `;
 
     for (const c of validCmds) {
@@ -53,7 +52,7 @@ const formatCategory = (category, cmds) => {
     }
 
     body += `┇◆╰┉┉┉┉┉┉┉┉┉┉┉┉┉━┈⊷
-╰═══════════════════⍟
+╰══════════════════⍟
 `;
 
     return body;
@@ -120,14 +119,11 @@ const getCategorizedCommands = () => {
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// MENU IMAGE & AUDIO URL
+// MENU IMAGE URL
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const MENU_IMAGE_URL =
     "https://raw.githubusercontent.com/aiking123beep/aiases/main/nawazmd.jpg";
-
-const MENU_AUDIO_URL =
-    "https://files.catbox.moe/6vl0od.mp3";
 
 const NEWSLETTER_JID =
     "120363412400560245@newsletter";
@@ -205,7 +201,7 @@ async (conn, mek, m, { from, sender, reply, userConfig }) => {
         // ─── Build Menu Text ───
 
         const dec = `╭─❍══ ⃟ ⃟ ⃟   ${toBoldFont(BOT_NAME)}   ⃟ ⃟ ⃟══⊷❍
-┇◆╭┉┉┉┉┉┉┉┉┉┉━┈᛭
+┇◆╭┉┉┉┉┉┉┉┉┉┉━⊷
 ┇◆┋. ${toBoldFont("Owner")} : ${toBoldFont(OWNER_NAME)}
 ┇◆┋. ${toBoldFont("Mode")} : ${toBoldFont(MODE)}
 ┇◆┋. ${toBoldFont("Prefix")} : ${PREFIX}
@@ -213,17 +209,17 @@ async (conn, mek, m, { from, sender, reply, userConfig }) => {
 ┇◆┋. ${toBoldFont("Runtime")} : ${runtime(process.uptime())}
 ┇◆┋. ${toBoldFont("Total Commands")} : ${totalCommands}
 ┇◆╰┉┉┉┉┉┉┉┉┉┉┉┉┉━┈⊷
-╰═══════════════════⍟
+╰══════════════════⍟
 
 ${menuSections}
 
 ╭─❍══ ⃟ ⃟ ⃟   ${toBoldFont("SUPPORT")}   ⃟ ⃟ ⃟══⊷❍
-┇◆╭┉┉┉┉┉┉┉┉┉┉━┈᛭
+┇◆╭┉┉┉┉┉┉┉┉┉┉━⊷
 ┇◆┋. _${toBoldFont("owner")}_
 ┇◆┋. _${toBoldFont("ping")}_
 ┇◆┋. _${toBoldFont("menu")}_
 ┇◆╰┉┉┉┉┉┉┉┉┉┉┉┉┉━┈⊷
-╰═══════════════════⍟
+╰══════════════════⍟
 
 > ${toBoldFont(DESCRIPTION)}`;
 
@@ -250,39 +246,8 @@ ${menuSections}
             { quoted: m }
         );
 
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // WAIT 2 SECONDS
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // SEND AUDIO LIKE A SONG
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-        await conn.sendMessage(
-            from,
-            {
-                audio: { url: MENU_AUDIO_URL },
-                mimetype: "audio/mpeg",
-                ptt: false,
-                contextInfo: {
-                    mentionedJid: [sender],
-                    forwardingScore: 999,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: NEWSLETTER_JID,
-                        newsletterName: BOT_NAME,
-                        serverMessageId: 144
-                    }
-                }
-            },
-            { quoted: m }
-        );
-
     } catch (e) {
         console.log(e);
         reply(`Error: ${e.message}`);
     }
 });
-    
