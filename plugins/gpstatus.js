@@ -36,12 +36,12 @@ function isBotAdmin(participants, botJid) {
     );
 }
 
-// ==================== GROUP STATUS RELAY ====================
-async function relayGroupStatusV2(conn, jid, content) {
+// ==================== PURE TEXT STATUS RELAY ====================
+async function relayGroupStatusV2(conn, jid, text) {
     const messageSecret = crypto.randomBytes(32);
 
     const inside = await generateWAMessageContent(
-        content,
+        { text },
         { upload: conn.waUploadToServer }
     );
 
@@ -86,24 +86,25 @@ cmd({
     try {
         const quotedMsg = m.quoted;
 
-        const quotedMessage = quotedMsg?.message || {};
+        const mimeType = quotedMsg
+            ? (quotedMsg.msg || quotedMsg).mimetype || ''
+            : '';
+
+        // CHANGED: get caption/text from command OR quoted media/message
         const quotedContent = quotedMsg?.msg || quotedMsg || {};
-
-        const mimeType = quotedContent.mimetype || '';
-
-        // Use command text first; otherwise use quoted caption/text
         const caption =
             text?.trim() ||
             quotedContent.caption ||
-            quotedMessage.imageMessage?.caption ||
-            quotedMessage.videoMessage?.caption ||
-            quotedMessage.conversation ||
-            quotedMessage.extendedTextMessage?.text ||
+            quotedContent.text ||
+            quotedMsg?.message?.imageMessage?.caption ||
+            quotedMsg?.message?.videoMessage?.caption ||
+            quotedMsg?.message?.extendedTextMessage?.text ||
+            quotedMsg?.message?.conversation ||
             '';
 
         if (!quotedMsg && !caption) {
             return reply(
-                '⚠️ Reply to a text, image, video, or audio with .gpstatus!'
+                '⚠️ Reply to a text, image, video, or audio status with .gpstatus!'
             );
         }
 
@@ -119,6 +120,7 @@ cmd({
             );
         }
 
+        // Get the WhatsApp number connected to the bot
         const botJid = conn.user.id;
 
         await conn.sendMessage(from, {
@@ -142,25 +144,40 @@ cmd({
             }
         }
 
+        let checked = 0;
+        let eligible = 0;
         let success = 0;
+        let failed = 0;
+        let skipped = 0;
+
+        await reply(
+            '🔍 Checking groups where the bot number is an admin...'
+        );
 
         for (const groupId of groupIds) {
             try {
                 const metadata = await conn.groupMetadata(groupId);
                 const participants = metadata.participants || [];
 
+                checked++;
+
                 // Check ONLY the bot's own WhatsApp number
                 if (!isBotAdmin(participants, botJid)) {
+                    skipped++;
                     continue;
                 }
 
-                let messageContent;
+                eligible++;
 
                 if (quotedMsg && mimeType) {
+                    const mentionedJid = participants.map(p => p.id);
+
                     const contextInfo = {
                         isGroupStatus: true,
-                        mentionedJid: participants.map(p => p.id)
+                        mentionedJid
                     };
+
+                    let messageContent;
 
                     if (mimeType.startsWith('image/')) {
                         messageContent = {
@@ -178,7 +195,7 @@ cmd({
                         };
                     } else {
                         const isPTT =
-                            quotedMessage.audioMessage?.ptt || false;
+                            quotedMsg.message?.audioMessage?.ptt || false;
 
                         messageContent = {
                             audio: mediaBuffer,
@@ -189,19 +206,17 @@ cmd({
                             contextInfo
                         };
                     }
-                } else {
-                    messageContent = { text: caption };
-                }
 
-                await relayGroupStatusV2(
-                    conn,
-                    groupId,
-                    messageContent
-                );
+                    await conn.sendMessage(groupId, messageContent);
+                } else {
+                    await relayGroupStatusV2(conn, groupId, caption);
+                }
 
                 success++;
 
             } catch (err) {
+                failed++;
+
                 console.error(
                     `GPSTATUS failed for ${groupId}:`,
                     err.message
@@ -216,8 +231,13 @@ cmd({
         });
 
         await reply(
-            `✅ *GP STATUS SUCCESSFUL*\n` +
-            `📊 Groups Status Posted: ${success}`
+            `🎉 *GPSTATUS Completed!*\n\n` +
+            `🤖 Bot Number: ${botJid}\n` +
+            `🔎 Groups Checked: ${checked}\n` +
+            `👑 Groups Where Bot Is Admin: ${eligible}\n` +
+            `✅ Successful: ${success}\n` +
+            `❌ Failed: ${failed}\n` +
+            `⏭️ Skipped: ${skipped}`
         );
 
     } catch (error) {
