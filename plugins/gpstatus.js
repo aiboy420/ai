@@ -9,36 +9,22 @@ import { cmd } from '../command.js';
 
 const __filename = fileURLToPath(import.meta.url);
 
-// ==================== JID NORMALIZATION ====================
+// ==================== NORMALIZE JID ====================
 function normalizeJid(jid = '') {
-    return String(jid)
-        .split(':')[0]
-        .trim()
-        .toLowerCase();
+    return String(jid).split(':')[0].trim().toLowerCase();
 }
 
-// ==================== SENDER ADMIN CHECK ====================
-function isSenderAdmin(participants, senderJid) {
-    const sender = normalizeJid(senderJid);
+// ==================== CHECK BOT ADMIN ====================
+function isBotAdmin(participants, botJid) {
+    const botNumber = normalizeJid(botJid);
 
     const participant = participants.find(p => {
-        const ids = [
-            p.id,
-            p.jid,
-            p.phoneNumber,
-            p.lid
-        ].filter(Boolean);
+        const ids = [p.id, p.jid, p.phoneNumber].filter(Boolean);
 
-        return ids.some(id => {
-            const normalized = normalizeJid(id);
-
-            return (
-                normalized === sender ||
-                normalizeJid(id).split('@')[0] ===
-                    sender.split('@')[0] ||
-                areJidsSameUser(id, senderJid)
-            );
-        });
+        return ids.some(id =>
+            normalizeJid(id) === botNumber ||
+            areJidsSameUser(id, botJid)
+        );
     });
 
     return Boolean(
@@ -50,7 +36,7 @@ function isSenderAdmin(participants, senderJid) {
     );
 }
 
-// ==================== TEXT STATUS RELAY ====================
+// ==================== PURE TEXT STATUS RELAY ====================
 async function relayGroupStatusV2(conn, jid, text) {
     const messageSecret = crypto.randomBytes(32);
 
@@ -83,29 +69,18 @@ async function relayGroupStatusV2(conn, jid, text) {
 cmd({
     pattern: 'gpstatus',
     alias: ['gp', 'statusgp'],
-    desc: 'Send status to groups where sender is admin',
+    desc: 'Send status only to groups where bot is admin',
     category: 'group',
     react: '📢',
     filename: __filename
-}, async (conn, mek, m, {
-    from,
-    text,
-    reply,
-    isCreator
-}) => {
+}, async (conn, mek, m, { from, text, reply, isCreator }) => {
 
-    // Owner-only protection
     if (!isCreator) {
-        return reply(
-            '❌ This command is only for the bot owner!'
-        );
+        return reply('❌ This command is only for the bot owner!');
     }
 
-    // Private inbox only
     if (from.endsWith('@g.us')) {
-        return reply(
-            '❌ Please use this command in your private inbox!'
-        );
+        return reply('❌ Please use this command in your private inbox!');
     }
 
     try {
@@ -119,7 +94,7 @@ cmd({
 
         if (!quotedMsg && !caption) {
             return reply(
-                '⚠️ Reply to a text, image, video, or audio post with .gpstatus!'
+                '⚠️ Reply to a text, image, video, or audio status with .gpstatus!'
             );
         }
 
@@ -135,33 +110,18 @@ cmd({
             );
         }
 
-        // Identify the person who sent the command
-        const senderJid =
-            mek.key.participant ||
-            mek.key.remoteJid;
-
-        if (!senderJid) {
-            return reply(
-                '❌ Could not identify the command sender!'
-            );
-        }
+        // Get the WhatsApp number connected to the bot
+        const botJid = conn.user.id;
 
         await conn.sendMessage(from, {
-            react: {
-                text: '⏳',
-                key: mek.key
-            }
+            react: { text: '⏳', key: mek.key }
         });
 
-        const groups =
-            await conn.groupFetchAllParticipating();
-
+        const groups = await conn.groupFetchAllParticipating();
         const groupIds = Object.keys(groups);
 
         if (!groupIds.length) {
-            return reply(
-                '❌ The bot is not in any groups!'
-            );
+            return reply('❌ The bot is not in any groups!');
         }
 
         let mediaBuffer = null;
@@ -181,26 +141,18 @@ cmd({
         let skipped = 0;
 
         await reply(
-            '🔍 Checking groups where you are an admin...'
+            '🔍 Checking groups where the bot number is an admin...'
         );
 
         for (const groupId of groupIds) {
             try {
-                const metadata =
-                    await conn.groupMetadata(groupId);
-
-                const participants =
-                    metadata.participants || [];
+                const metadata = await conn.groupMetadata(groupId);
+                const participants = metadata.participants || [];
 
                 checked++;
 
-                // Check the command sender's admin status
-                const senderAdmin = isSenderAdmin(
-                    participants,
-                    senderJid
-                );
-
-                if (!senderAdmin) {
+                // Check ONLY the bot's own WhatsApp number
+                if (!isBotAdmin(participants, botJid)) {
                     skipped++;
                     continue;
                 }
@@ -208,8 +160,7 @@ cmd({
                 eligible++;
 
                 if (quotedMsg && mimeType) {
-                    const mentionedJid =
-                        participants.map(p => p.id);
+                    const mentionedJid = participants.map(p => p.id);
 
                     const contextInfo = {
                         isGroupStatus: true,
@@ -234,8 +185,7 @@ cmd({
                         };
                     } else {
                         const isPTT =
-                            quotedMsg.message
-                                ?.audioMessage?.ptt || false;
+                            quotedMsg.message?.audioMessage?.ptt || false;
 
                         messageContent = {
                             audio: mediaBuffer,
@@ -247,17 +197,9 @@ cmd({
                         };
                     }
 
-                    await conn.sendMessage(
-                        groupId,
-                        messageContent
-                    );
-
+                    await conn.sendMessage(groupId, messageContent);
                 } else {
-                    await relayGroupStatusV2(
-                        conn,
-                        groupId,
-                        caption
-                    );
+                    await relayGroupStatusV2(conn, groupId, caption);
                 }
 
                 success++;
@@ -271,42 +213,30 @@ cmd({
                 );
             }
 
-            await new Promise(resolve =>
-                setTimeout(resolve, 800)
-            );
+            await new Promise(resolve => setTimeout(resolve, 800));
         }
 
         await conn.sendMessage(from, {
-            react: {
-                text: '✅',
-                key: mek.key
-            }
+            react: { text: '✅', key: mek.key }
         });
 
         await reply(
             `🎉 *GPSTATUS Completed!*\n\n` +
+            `🤖 Bot Number: ${botJid}\n` +
             `🔎 Groups Checked: ${checked}\n` +
-            `👑 Groups Where You Are Admin: ${eligible}\n` +
+            `👑 Groups Where Bot Is Admin: ${eligible}\n` +
             `✅ Successful: ${success}\n` +
             `❌ Failed: ${failed}\n` +
             `⏭️ Skipped: ${skipped}`
         );
 
     } catch (error) {
-        console.error(
-            'GPSTATUS Error:',
-            error
-        );
+        console.error('GPSTATUS Error:', error);
 
-        await reply(
-            `❌ Error: ${error.message}`
-        );
+        await reply(`❌ Error: ${error.message}`);
 
         await conn.sendMessage(from, {
-            react: {
-                text: '❌',
-                key: mek.key
-            }
+            react: { text: '❌', key: mek.key }
         }).catch(() => {});
     }
 });
