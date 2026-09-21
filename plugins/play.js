@@ -4,7 +4,7 @@ import axios from 'axios';
 
 const __filename = fileURLToPath(import.meta.url);
 
-const API_BASE = "https://api-dark-shan-yt.koyeb.app";
+const FAIZAN_API = "https://faizan-api.vercel.app/api/ytdl";
 
 function getVideoId(url) {
     const match = url.match(
@@ -74,52 +74,47 @@ cmd({
         let success = false;
 
         try {
-            // Search API
-            const searchResponse = await axios.get(
-                `${API_BASE}/search`,
-                {
-                    params: { query: vid.title },
-                    timeout: 15000
+            const response = await axios.get(FAIZAN_API, {
+                params: {
+                    url,
+                    type: 'mp3'
+                },
+                timeout: 60000,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0'
                 }
-            );
+            });
 
-            const searchData = searchResponse.data;
-
-            // Download API
-            const downloadResponse = await axios.get(
-                `${API_BASE}/download`,
-                {
-                    params: { url },
-                    timeout: 30000
-                }
-            );
-
-            const data = downloadResponse.data;
+            const data = response.data;
 
             const audioUrl =
-                data?.download?.url ||
-                data?.url ||
-                data?.result?.url ||
-                data?.downloadUrl ||
-                data?.link;
+                data?.status === true
+                    ? data?.result?.audio_download
+                    : null;
 
-            if (audioUrl) {
-                await conn.sendMessage(from, {
-                    audio: { url: audioUrl },
-                    mimetype: "audio/mpeg",
-                    fileName: `${vid.title}.mp3`,
-                    ptt: false
-                }, { quoted: mek });
-
-                success = true;
+            if (!audioUrl) {
+                console.error(
+                    "⚠️ Faizan API returned no audio link:",
+                    JSON.stringify(data)
+                );
+                return reply("❌ Faizan API returned no audio link!");
             }
 
+            await conn.sendMessage(from, {
+                audio: { url: audioUrl },
+                mimetype: "audio/mpeg",
+                fileName: `${vid.title}.mp3`,
+                ptt: false
+            }, { quoted: mek });
+
+            success = true;
+
         } catch (e) {
-            console.error("⚠️ Shan YT API failed:", e.message);
+            console.error("⚠️ Faizan Audio API failed:", e.message);
         }
 
         if (!success) {
-            return reply("❌ Download failed! API response format may be different.");
+            return reply("❌ Download failed! Please try again later.");
         }
 
         await conn.sendMessage(from, {
@@ -135,4 +130,3 @@ cmd({
         });
     }
 });
-        
