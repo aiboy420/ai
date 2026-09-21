@@ -17,7 +17,7 @@ function getVideoId(url) {
 function findAudioUrl(data) {
     if (!data) return null;
 
-    const possibleUrls = [
+    const candidates = [
         data?.result?.audio_download,
         data?.result?.download_url,
         data?.result?.audio,
@@ -31,7 +31,7 @@ function findAudioUrl(data) {
         data?.url
     ];
 
-    return possibleUrls.find(
+    return candidates.find(
         value => typeof value === 'string' &&
         /^https?:\/\//i.test(value)
     ) || null;
@@ -47,7 +47,9 @@ cmd({
 }, async (conn, mek, m, { from, text, reply }) => {
     try {
         if (!text) {
-            return reply('❌ Please provide song name\nExample: .play Shape of You');
+            return reply(
+                '❌ Please provide song name\nExample: .play Shape of You'
+            );
         }
 
         const { default: yts } = await import('yt-search');
@@ -61,6 +63,7 @@ cmd({
             }
 
             const videoId = getVideoId(url);
+
             if (!videoId) {
                 return reply('❌ Invalid YouTube URL!');
             }
@@ -102,12 +105,13 @@ cmd({
         const response = await axios.get(API_URL, {
             params: {
                 url,
-                apikey: API_KEY
+                apiKey: API_KEY
             },
-            timeout: 60000,
             headers: {
+                'X-API-Key': API_KEY,
                 'User-Agent': 'Mozilla/5.0'
-            }
+            },
+            timeout: 60000
         });
 
         const data = response.data;
@@ -115,12 +119,12 @@ cmd({
 
         if (!audioUrl) {
             console.error(
-                '❌ QASIM API RESPONSE:',
+                'QASIM API RESPONSE:',
                 JSON.stringify(data, null, 2)
             );
 
             return reply(
-                '❌ API se audio link nahi mila. API response console mein check karein.'
+                '❌ API response mein audio link nahi mila. API response check karein.'
             );
         }
 
@@ -150,4 +154,3 @@ cmd({
         });
     }
 });
-        
