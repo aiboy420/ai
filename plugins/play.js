@@ -1,6 +1,5 @@
 import { fileURLToPath } from 'url';
 import { cmd } from '../command.js';
-import axios from 'axios';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -69,22 +68,19 @@ cmd({
 > © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
         }, { quoted: mek });
 
-        // ✅ یہاں ہم نیا ڈاؤن لوڈر استعمال کر رہے ہیں
+        // ✅ نیا ڈاؤن لوڈر (بغیر API key)
         const { lmna } = await import('@lmna22/aio-downloader');
         
-        // Quality 8 کا مطلب ہے MP3 آڈیو (پیکیج کے مطابق)
+        // Quality 8 کا مطلب MP3 ہے
         const result = await lmna.youtube(url, 8);
 
-        // اگر ڈاؤن لوڈ ناکام ہو جائے تو fallback
         if (!result || !result.status || !result.data) {
             return reply("❌ All download sources failed! Try again later.");
         }
 
-        // result.data.result میں آڈیو کا براہ راست لنک یا بفر موجود ہوتا ہے
-        const audioSource = result.data.result;
-        
+        // ✅ result.data.result ایک Buffer ہے — براہ راست بھیجیں
         await conn.sendMessage(from, {
-            audio: { url: audioSource }, // اگر لنک ہے تو یہ کام کرے گا
+            audio: result.data.result,
             mimetype: "audio/mpeg",
             fileName: `${vid.title}.mp3`,
             ptt: false
@@ -95,7 +91,7 @@ cmd({
         });
 
     } catch (err) {
-        console.error("❌ PLAY ERROR:", err);
+        console.error("❌ PLAY ERROR:", err.message);
         reply("❌ Error occurred! Please try again later.");
 
         await conn.sendMessage(from, {
