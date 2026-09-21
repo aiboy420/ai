@@ -1,11 +1,14 @@
 import { fileURLToPath } from 'url';
 import { cmd } from '../command.js';
+import axios from 'axios';
 
 const __filename = fileURLToPath(import.meta.url);
 
+const API_BASE = "https://api-dark-shan-yt.koyeb.app";
+
 function getVideoId(url) {
     const match = url.match(
-        /(?:youtube.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu.be\/)([^"&?\/\s]{11})/
+        /(?:youtube.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu.be\/)([^"&?/\s]{11})/
     );
     return match ? match[1] : null;
 }
@@ -68,30 +71,63 @@ cmd({
 > © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
         }, { quoted: mek });
 
-        // ✅ نیا ڈاؤن لوڈر (بغیر API key)
-        const { lmna } = await import('@lmna22/aio-downloader');
-        
-        // Quality 8 کا مطلب MP3 ہے
-        const result = await lmna.youtube(url, 8);
+        let success = false;
 
-        if (!result || !result.status || !result.data) {
-            return reply("❌ All download sources failed! Try again later.");
+        try {
+            // Search API
+            const searchResponse = await axios.get(
+                `${API_BASE}/search`,
+                {
+                    params: { query: vid.title },
+                    timeout: 15000
+                }
+            );
+
+            const searchData = searchResponse.data;
+
+            // Download API
+            const downloadResponse = await axios.get(
+                `${API_BASE}/download`,
+                {
+                    params: { url },
+                    timeout: 30000
+                }
+            );
+
+            const data = downloadResponse.data;
+
+            const audioUrl =
+                data?.download?.url ||
+                data?.url ||
+                data?.result?.url ||
+                data?.downloadUrl ||
+                data?.link;
+
+            if (audioUrl) {
+                await conn.sendMessage(from, {
+                    audio: { url: audioUrl },
+                    mimetype: "audio/mpeg",
+                    fileName: `${vid.title}.mp3`,
+                    ptt: false
+                }, { quoted: mek });
+
+                success = true;
+            }
+
+        } catch (e) {
+            console.error("⚠️ Shan YT API failed:", e.message);
         }
 
-        // ✅ result.data.result ایک Buffer ہے — براہ راست بھیجیں
-        await conn.sendMessage(from, {
-            audio: result.data.result,
-            mimetype: "audio/mpeg",
-            fileName: `${vid.title}.mp3`,
-            ptt: false
-        }, { quoted: mek });
+        if (!success) {
+            return reply("❌ Download failed! API response format may be different.");
+        }
 
         await conn.sendMessage(from, {
             react: { text: '✅', key: m.key }
         });
 
     } catch (err) {
-        console.error("❌ PLAY ERROR:", err.message);
+        console.error("❌ PLAY ERROR:", err);
         reply("❌ Error occurred! Please try again later.");
 
         await conn.sendMessage(from, {
@@ -99,3 +135,4 @@ cmd({
         });
     }
 });
+        
