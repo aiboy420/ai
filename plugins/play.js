@@ -14,6 +14,29 @@ function getVideoId(url) {
     return match ? match[1] : null;
 }
 
+function findAudioUrl(data) {
+    if (!data) return null;
+
+    const possibleUrls = [
+        data?.result?.audio_download,
+        data?.result?.download_url,
+        data?.result?.audio,
+        data?.result?.url,
+        data?.data?.audio_download,
+        data?.data?.download_url,
+        data?.data?.audio,
+        data?.data?.url,
+        data?.download?.url,
+        data?.audio,
+        data?.url
+    ];
+
+    return possibleUrls.find(
+        value => typeof value === 'string' &&
+        /^https?:\/\//i.test(value)
+    ) || null;
+}
+
 cmd({
     pattern: 'play',
     alias: ['audio'],
@@ -29,20 +52,22 @@ cmd({
 
         const { default: yts } = await import('yt-search');
 
-        let url = text;
+        let url = text.trim();
         let vid = null;
 
-        if (text.startsWith('http://') || text.startsWith('https://')) {
-            if (!text.includes('youtube.com') && !text.includes('youtu.be')) {
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+            if (!url.includes('youtube.com') && !url.includes('youtu.be')) {
                 return reply('❌ Please provide a valid YouTube URL!');
             }
 
-            const videoId = getVideoId(text);
-            if (!videoId) return reply('❌ Invalid YouTube URL!');
+            const videoId = getVideoId(url);
+            if (!videoId) {
+                return reply('❌ Invalid YouTube URL!');
+            }
 
             vid = await yts({ videoId });
         } else {
-            const search = await yts(text);
+            const search = await yts(url);
 
             if (!search?.videos?.length) {
                 return reply('❌ No song found!');
@@ -52,7 +77,9 @@ cmd({
             url = vid.url;
         }
 
-        if (!vid) return reply('❌ No results found!');
+        if (!vid) {
+            return reply('❌ No results found!');
+        }
 
         await conn.sendMessage(from, {
             image: { url: vid.thumbnail },
@@ -84,20 +111,17 @@ cmd({
         });
 
         const data = response.data;
+        const audioUrl = findAudioUrl(data);
 
-        const audioUrl =
-            data?.result?.audio_download ||
-            data?.result?.download_url ||
-            data?.result?.url ||
-            data?.data?.audio ||
-            data?.data?.url ||
-            data?.download?.url ||
-            data?.audio ||
-            data?.url;
+        if (!audioUrl) {
+            console.error(
+                '❌ QASIM API RESPONSE:',
+                JSON.stringify(data, null, 2)
+            );
 
-        if (!audioUrl || typeof audioUrl !== 'string') {
-            console.error('API response:', data);
-            return reply('❌ API did not return a valid audio link.');
+            return reply(
+                '❌ API se audio link nahi mila. API response console mein check karein.'
+            );
         }
 
         await conn.sendMessage(from, {
@@ -112,13 +136,18 @@ cmd({
         });
 
     } catch (err) {
-        console.error('❌ PLAY ERROR:', err.response?.data || err.message);
+        console.error(
+            '❌ PLAY ERROR:',
+            err.response?.data || err.message
+        );
 
-        await reply('❌ Song download failed! Please try again later.');
+        await reply(
+            '❌ Song download failed! Please try again later.'
+        );
 
         await conn.sendMessage(from, {
             react: { text: '❌', key: m.key }
         });
     }
 });
-    
+        
