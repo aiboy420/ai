@@ -3,7 +3,11 @@ import { cmd } from '../command.js';
 import axios from 'axios';
 
 const __filename = fileURLToPath(import.meta.url);
-const API_BASE = "https://xjawadtech.vercel.app";
+
+const API_BASES = [
+    "https://xjawadtech.vercel.app",
+    "https://faizan-api.vercel.app"
+];
 
 function getVideoId(url) {
     const match = url.match(
@@ -69,22 +73,23 @@ cmd({
 > © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
         }, { quoted: mek });
 
-        const audioAPIs = [
-            `${API_BASE}/ytx?url=${encodeURIComponent(url)}`,
-            `${API_BASE}/yta6?url=${encodeURIComponent(url)}`,
-            `${API_BASE}/yta7?url=${encodeURIComponent(url)}`,
-            `${API_BASE}/yta1?url=${encodeURIComponent(url)}`,
-            `${API_BASE}/yta2?url=${encodeURIComponent(url)}`,
-            `${API_BASE}/yta3?url=${encodeURIComponent(url)}`,
-            `${API_BASE}/yta4?url=${encodeURIComponent(url)}`,
-            `${API_BASE}/yta5?url=${encodeURIComponent(url)}`
-        ];
+        const audioAPIs = API_BASES.flatMap(base => [
+            `${base}/ytx?url=${encodeURIComponent(url)}`,
+            `${base}/yta6?url=${encodeURIComponent(url)}`,
+            `${base}/yta7?url=${encodeURIComponent(url)}`,
+            `${base}/yta1?url=${encodeURIComponent(url)}`,
+            `${base}/yta2?url=${encodeURIComponent(url)}`,
+            `${base}/yta3?url=${encodeURIComponent(url)}`,
+            `${base}/yta4?url=${encodeURIComponent(url)}`,
+            `${base}/yta5?url=${encodeURIComponent(url)}`
+        ]);
 
         let success = false;
 
         for (const apiUrl of audioAPIs) {
             try {
                 const response = await axios.get(apiUrl, { timeout: 15000 });
+
                 const audioUrl = response.data?.status &&
                     response.data?.download?.url
                     ? response.data.download.url
@@ -123,4 +128,4 @@ cmd({
         });
     }
 });
-
+                         
