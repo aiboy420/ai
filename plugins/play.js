@@ -4,26 +4,27 @@ import axios from 'axios';
 
 const __filename = fileURLToPath(import.meta.url);
 
-const FAIZAN_API = "https://faizan-api.vercel.app/api/ytdl";
+const API_URL = 'https://api.qasimdev.dpdns.org/api/loaderto/download';
+const API_KEY = 'xbps-install-Syu';
 
 function getVideoId(url) {
     const match = url.match(
-        /(?:youtube.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu.be\/)([^"&?/\s]{11})/
+        /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/
     );
     return match ? match[1] : null;
 }
 
 cmd({
-    pattern: "play",
-    alias: ["audio"],
-    desc: "Download YouTube audio",
-    category: "download",
-    react: "🎧",
+    pattern: 'play',
+    alias: ['audio'],
+    desc: 'Download YouTube audio',
+    category: 'download',
+    react: '🎧',
     filename: __filename
 }, async (conn, mek, m, { from, text, reply }) => {
     try {
         if (!text) {
-            return reply("❌ Please provide song name\nExample: .play Shape of You");
+            return reply('❌ Please provide song name\nExample: .play Shape of You');
         }
 
         const { default: yts } = await import('yt-search');
@@ -32,26 +33,26 @@ cmd({
         let vid = null;
 
         if (text.startsWith('http://') || text.startsWith('https://')) {
-            if (!text.includes("youtube.com") && !text.includes("youtu.be")) {
-                return reply("❌ Please provide a valid YouTube URL!");
+            if (!text.includes('youtube.com') && !text.includes('youtu.be')) {
+                return reply('❌ Please provide a valid YouTube URL!');
             }
 
             const videoId = getVideoId(text);
-            if (!videoId) return reply("❌ Invalid YouTube URL!");
+            if (!videoId) return reply('❌ Invalid YouTube URL!');
 
             vid = await yts({ videoId });
         } else {
             const search = await yts(text);
 
             if (!search?.videos?.length) {
-                return reply("❌ No song found!");
+                return reply('❌ No song found!');
             }
 
             vid = search.videos[0];
             url = vid.url;
         }
 
-        if (!vid) return reply("❌ No results found!");
+        if (!vid) return reply('❌ No results found!');
 
         await conn.sendMessage(from, {
             image: { url: vid.thumbnail },
@@ -71,62 +72,53 @@ cmd({
 > © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
         }, { quoted: mek });
 
-        let success = false;
-
-        try {
-            const response = await axios.get(FAIZAN_API, {
-                params: {
-                    url,
-                    type: 'mp3'
-                },
-                timeout: 60000,
-                headers: {
-                    'User-Agent': 'Mozilla/5.0'
-                }
-            });
-
-            const data = response.data;
-
-            const audioUrl =
-                data?.status === true
-                    ? data?.result?.audio_download
-                    : null;
-
-            if (!audioUrl) {
-                console.error(
-                    "⚠️ Faizan API returned no audio link:",
-                    JSON.stringify(data)
-                );
-                return reply("❌ Faizan API returned no audio link!");
+        const response = await axios.get(API_URL, {
+            params: {
+                url,
+                apikey: API_KEY
+            },
+            timeout: 60000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0'
             }
+        });
 
-            await conn.sendMessage(from, {
-                audio: { url: audioUrl },
-                mimetype: "audio/mpeg",
-                fileName: `${vid.title}.mp3`,
-                ptt: false
-            }, { quoted: mek });
+        const data = response.data;
 
-            success = true;
+        const audioUrl =
+            data?.result?.audio_download ||
+            data?.result?.download_url ||
+            data?.result?.url ||
+            data?.data?.audio ||
+            data?.data?.url ||
+            data?.download?.url ||
+            data?.audio ||
+            data?.url;
 
-        } catch (e) {
-            console.error("⚠️ Faizan Audio API failed:", e.message);
+        if (!audioUrl || typeof audioUrl !== 'string') {
+            console.error('API response:', data);
+            return reply('❌ API did not return a valid audio link.');
         }
 
-        if (!success) {
-            return reply("❌ Download failed! Please try again later.");
-        }
+        await conn.sendMessage(from, {
+            audio: { url: audioUrl },
+            mimetype: 'audio/mpeg',
+            fileName: `${vid.title}.mp3`,
+            ptt: false
+        }, { quoted: mek });
 
         await conn.sendMessage(from, {
             react: { text: '✅', key: m.key }
         });
 
     } catch (err) {
-        console.error("❌ PLAY ERROR:", err);
-        reply("❌ Error occurred! Please try again later.");
+        console.error('❌ PLAY ERROR:', err.response?.data || err.message);
+
+        await reply('❌ Song download failed! Please try again later.');
 
         await conn.sendMessage(from, {
             react: { text: '❌', key: m.key }
         });
     }
 });
+    
