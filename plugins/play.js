@@ -4,37 +4,13 @@ import axios from 'axios';
 
 const __filename = fileURLToPath(import.meta.url);
 
-const API_URL = 'https://api.qasimdev.dpdns.org/api/loaderto/download';
-const API_KEY = 'xbps-install-Syu';
+const API_URL = 'https://eliteprotech-apis.zone.id/download/ytmp3';
 
 function getVideoId(url) {
     const match = url.match(
         /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/
     );
     return match ? match[1] : null;
-}
-
-function findAudioUrl(data) {
-    if (!data) return null;
-
-    const candidates = [
-        data?.result?.audio_download,
-        data?.result?.download_url,
-        data?.result?.audio,
-        data?.result?.url,
-        data?.data?.audio_download,
-        data?.data?.download_url,
-        data?.data?.audio,
-        data?.data?.url,
-        data?.download?.url,
-        data?.audio,
-        data?.url
-    ];
-
-    return candidates.find(
-        value => typeof value === 'string' &&
-        /^https?:\/\//i.test(value)
-    ) || null;
 }
 
 cmd({
@@ -63,7 +39,6 @@ cmd({
             }
 
             const videoId = getVideoId(url);
-
             if (!videoId) {
                 return reply('❌ Invalid YouTube URL!');
             }
@@ -103,29 +78,24 @@ cmd({
         }, { quoted: mek });
 
         const response = await axios.get(API_URL, {
-            params: {
-                url,
-                apiKey: API_KEY
-            },
+            params: { url },
+            timeout: 60000,
             headers: {
-                'X-API-Key': API_KEY,
                 'User-Agent': 'Mozilla/5.0'
-            },
-            timeout: 60000
+            }
         });
 
         const data = response.data;
-        const audioUrl = findAudioUrl(data);
 
-        if (!audioUrl) {
+        const audioUrl = data?.download?.downloadUrl;
+
+        if (data?.status !== true || !audioUrl) {
             console.error(
-                'QASIM API RESPONSE:',
+                'ELITEPROTECH API RESPONSE:',
                 JSON.stringify(data, null, 2)
             );
 
-            return reply(
-                '❌ API response mein audio link nahi mila. API response check karein.'
-            );
+            return reply('❌ API did not return a valid audio link.');
         }
 
         await conn.sendMessage(from, {
@@ -145,12 +115,11 @@ cmd({
             err.response?.data || err.message
         );
 
-        await reply(
-            '❌ Song download failed! Please try again later.'
-        );
+        await reply('❌ Song download failed! Please try again later.');
 
         await conn.sendMessage(from, {
             react: { text: '❌', key: m.key }
         });
     }
 });
+    
