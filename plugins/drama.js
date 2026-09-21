@@ -8,9 +8,6 @@ import axios from 'axios';
 
 const __filename = fileURLToPath(import.meta.url);
 
-// In-memory cache for pending downloads
-const cache = new Map();
-
 /**
  * Normalize YouTube URL
  */
@@ -84,16 +81,13 @@ cmd(
                 }
             });
 
-            // SEARCH
+            // SEARCH VIDEO
             const normalizedUrl = normalizeYouTubeUrl(q);
             let ytdata;
 
             if (normalizedUrl) {
-                const searchResults = await yts({
-                    videoId: normalizedUrl.split("v=")[1]
-                });
-
-                ytdata = searchResults;
+                const videoId = normalizedUrl.split("v=")[1];
+                ytdata = await yts({ videoId });
             } else {
                 const searchResults = await yts(q);
 
@@ -107,8 +101,6 @@ cmd(
             if (!ytdata) {
                 return reply("❌ No video found!");
             }
-
-            const videoUrl = ytdata.url;
 
             // VIDEO INFO - NAWAZ MD STYLE
             const infoText = `*╭─❍══ ⃟ ⃟ ⃟   𝙽𝙰𝚆𝙰𝚉 𝙼𝙳   ⃟ ⃟ ⃟══⊷❍*
@@ -142,57 +134,40 @@ cmd(
             });
 
             // GET DOWNLOAD LINK
-            const dlData = await fetchDownloadData(videoUrl);
+            const dlData = await fetchDownloadData(
+                normalizedUrl || ytdata.url
+            );
 
             if (!dlData?.video_url) {
                 return reply("❌ Video link not found or expired!");
             }
 
-            // DOWNLOAD VIDEO BUFFER
+            // DOWNLOAD VIDEO
             let videoBuffer;
 
             try {
-                const response = await axios.get(dlData.video_url, {
+                const videoResponse = await axios.get(dlData.video_url, {
                     responseType: "arraybuffer",
                     timeout: 60000
                 });
 
-                videoBuffer = Buffer.from(response.data);
+                videoBuffer = Buffer.from(videoResponse.data);
 
             } catch (err) {
                 console.log("VIDEO DOWNLOAD ERROR:", err.message);
-                return reply("❌ Video download failed (invalid link or large file).");
+                return reply(
+                    "❌ Video download failed (invalid link or large file)."
+                );
             }
 
-            // CREATE REPLY OPTIONS
-            const optionMessage = await conn.sendMessage(from, {
-                text: `*╭─❍══ ⃟ ⃟ ⃟   𝙽𝙰𝚆𝙰𝚉 𝙼𝙳   ⃟ ⃟ ⃟══⊷❍*
-┇◆┋📥 *Choose Download Type*
-┇◆┋
-┇◆┋1️⃣ *Video*
-┇◆┋2️⃣ *Document*
-┇◆┋
-┇◆┋Reply with *1* or *2*
-┇◆╰┉┉┉┉┉┉┉┉┉┉┉┉┉━┈⊷
-╰═══════════════════⍟
-
-> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
+            // SEND VIDEO DIRECTLY
+            await conn.sendMessage(from, {
+                video: videoBuffer,
+                mimetype: "video/mp4",
+                caption: `🎬 *${dlData.title || ytdata.title}*\n\n> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
             }, {
                 quoted: mek
             });
-
-            // SAVE PENDING CHOICE
-            cache.set(optionMessage.key.id, {
-                from,
-                videoBuffer,
-                title: dlData.title || ytdata.title,
-                originalMessage: mek
-            });
-
-            // AUTO EXPIRE AFTER 5 MINUTES
-            setTimeout(() => {
-                cache.delete(optionMessage.key.id);
-            }, 5 * 60 * 1000);
 
             await conn.sendMessage(from, {
                 react: {
@@ -212,68 +187,6 @@ cmd(
             });
 
             reply("⚠️ Something went wrong!");
-        }
-    }
-);
-
-// HANDLE REPLIES: 1 = VIDEO, 2 = DOCUMENT
-cmd(
-    {
-        on: "text",
-        fromMe: false
-    },
-    async (conn, mek, m, { from, body, reply }) => {
-        try {
-            const text = (
-                body ||
-                mek.message?.conversation ||
-                mek.message?.extendedTextMessage?.text ||
-                ""
-            ).trim();
-
-            const quotedId =
-                mek.message?.extendedTextMessage?.contextInfo?.stanzaId;
-
-            if (!quotedId || !cache.has(quotedId)) return;
-
-            const pending = cache.get(quotedId);
-
-            if (pending.from !== from) return;
-
-            if (text !== "1" && text !== "2") return;
-
-            cache.delete(quotedId);
-
-            if (text === "1") {
-                await conn.sendMessage(from, {
-                    video: pending.videoBuffer,
-                    mimetype: "video/mp4",
-                    caption: `🎬 *${pending.title}*\n\n> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
-                }, {
-                    quoted: mek
-                });
-
-            } else {
-                await conn.sendMessage(from, {
-                    document: pending.videoBuffer,
-                    mimetype: "video/mp4",
-                    fileName: `${pending.title}.mp4`,
-                    caption: `🎬 *${pending.title}*\n\n> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
-                }, {
-                    quoted: mek
-                });
-            }
-
-            await conn.sendMessage(from, {
-                react: {
-                    text: "✅",
-                    key: mek.key
-                }
-            });
-
-        } catch (e) {
-            console.log("DRAMA REPLY ERROR:", e.message);
-            reply("❌ Failed to send video!");
         }
     }
 );
