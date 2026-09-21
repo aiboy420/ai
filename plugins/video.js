@@ -3,13 +3,42 @@ import { cmd } from '../command.js';
 import axios from 'axios';
 
 const __filename = fileURLToPath(import.meta.url);
-const API_BASE = "https://xjawadtech.vercel.app";
 
 function getVideoId(url) {
     const match = url.match(
         /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/
     );
     return match ? match[1] : null;
+}
+
+async function fetchDownloadData(url, retries = 2) {
+    try {
+        const apiUrl =
+            `https://jawad-tech.vercel.app/download/ytdl?url=${encodeURIComponent(url)}`;
+
+        const response = await axios.get(apiUrl, {
+            timeout: 20000
+        });
+
+        const data = response.data;
+
+        if (data.status === true && data.result?.mp4) {
+            return {
+                video_url: data.result.mp4,
+                title: data.result.title || "YouTube Video"
+            };
+        }
+
+        throw new Error("API failed");
+    } catch (e) {
+        if (retries > 0) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            return fetchDownloadData(url, retries - 1);
+        }
+
+        console.error("Video API failed:", e.message);
+        return null;
+    }
 }
 
 cmd({
@@ -33,12 +62,17 @@ cmd({
         let vid = null;
 
         if (text.startsWith('http://') || text.startsWith('https://')) {
-            if (!text.includes("youtube.com") && !text.includes("youtu.be")) {
+            if (
+                !text.includes("youtube.com") &&
+                !text.includes("youtu.be")
+            ) {
                 return reply("❌ Please provide a valid YouTube URL!");
             }
 
             const videoId = getVideoId(text);
-            if (!videoId) return reply("❌ Invalid YouTube URL!");
+            if (!videoId) {
+                return reply("❌ Invalid YouTube URL!");
+            }
 
             vid = await yts({ videoId });
         } else {
@@ -52,7 +86,9 @@ cmd({
             url = vid.url;
         }
 
-        if (!vid) return reply("❌ No results found!");
+        if (!vid) {
+            return reply("❌ No results found!");
+        }
 
         await conn.sendMessage(from, {
             image: { url: vid.thumbnail },
@@ -70,42 +106,18 @@ cmd({
 > © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
         }, { quoted: mek });
 
-        const videoAPIs = [
-            `${API_BASE}/ytv1?url=${encodeURIComponent(url)}`,
-            `${API_BASE}/ytv2?url=${encodeURIComponent(url)}`,
-            `${API_BASE}/ytv3?url=${encodeURIComponent(url)}`,
-            `${API_BASE}/ytv4?url=${encodeURIComponent(url)}`
-        ];
+        const result = await fetchDownloadData(url);
 
-        let success = false;
-
-        for (const apiUrl of videoAPIs) {
-            try {
-                const response = await axios.get(apiUrl);
-
-                const videoUrl = response.data?.status &&
-                    response.data?.download?.url
-                    ? response.data.download.url
-                    : null;
-
-                if (!videoUrl) continue;
-
-                await conn.sendMessage(from, {
-                    video: { url: videoUrl },
-                    caption: `🎬 *${vid.title}*\n\n> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
-                }, { quoted: mek });
-
-                success = true;
-                break;
-
-            } catch (e) {
-                console.error(`⚠️ Video API failed (${apiUrl}):`, e.message);
-            }
+        if (!result?.video_url) {
+            return reply(
+                "❌ Video API failed! Please try again later."
+            );
         }
 
-        if (!success) {
-            return reply("❌ All video sources failed! Try again later.");
-        }
+        await conn.sendMessage(from, {
+            video: { url: result.video_url },
+            caption: `🎬 *${vid.title}*\n\n> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
+        }, { quoted: mek });
 
         await conn.sendMessage(from, {
             react: { text: '✅', key: m.key }
@@ -113,6 +125,7 @@ cmd({
 
     } catch (e) {
         console.error("Error in .video command:", e);
+
         reply("❌ Error occurred, please try again later!");
 
         await conn.sendMessage(from, {
@@ -120,4 +133,3 @@ cmd({
         });
     }
 });
-
