@@ -1,9 +1,11 @@
+
 import { fileURLToPath } from 'url';
 import { cmd } from '../command.js';
 import axios from 'axios';
 
 const __filename = fileURLToPath(import.meta.url);
-const API_BASE = "https://xjawadtech.vercel.app";
+
+const API_URL = 'https://eliteprotech-apis.zone.id/download/ytmp3';
 
 const toSmallCaps = (text) => {
     const map = {
@@ -20,20 +22,23 @@ function getVideoId(url) {
     const match = url.match(
         /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/
     );
+
     return match ? match[1] : null;
 }
 
 cmd({
-    pattern: "song",
-    alias: ["yt", "ytdl"],
-    desc: "Download YouTube song or video (interactive)",
-    category: "download",
-    react: "🎧",
+    pattern: 'song',
+    alias: ['yt', 'ytdl'],
+    desc: 'Download YouTube song (MP3)',
+    category: 'download',
+    react: '🎧',
     filename: __filename
 }, async (conn, mek, m, { from, text, reply }) => {
     try {
         if (!text) {
-            return reply("🎶 Please provide a YouTube video name or link.\n\nExample: .song Alone - Alan Walker");
+            return reply(
+                '🎶 Please provide a YouTube video name or link.\n\nExample: .song Alone - Alan Walker'
+            );
         }
 
         const { default: yts } = await import('yt-search');
@@ -41,25 +46,30 @@ cmd({
         let vid = null;
 
         if (text.startsWith('http://') || text.startsWith('https://')) {
-            if (!text.includes("youtube.com") && !text.includes("youtu.be")) {
-                return reply("❌ Please provide a valid YouTube URL!");
+            if (!text.includes('youtube.com') && !text.includes('youtu.be')) {
+                return reply('❌ Please provide a valid YouTube URL!');
             }
 
             const videoId = getVideoId(text);
-            if (!videoId) return reply("❌ Invalid YouTube URL!");
+
+            if (!videoId) {
+                return reply('❌ Invalid YouTube URL!');
+            }
 
             vid = await yts({ videoId });
         } else {
             const search = await yts(text);
 
             if (!search?.videos?.length) {
-                return reply("❌ No results found!");
+                return reply('❌ No results found!');
             }
 
             vid = search.videos[0];
         }
 
-        if (!vid) return reply("❌ No results found!");
+        if (!vid) {
+            return reply('❌ No results found!');
+        }
 
         const caption = `*╭─❍══ ⃟ ⃟ ⃟   𝙽𝙰𝚆𝙰𝚉 𝙼𝙳   ⃟ ⃟ ⃟══⊷❍*
 ┇◆╭┉┉┉┉┉┉┉┉┉┉━┈᛭
@@ -72,9 +82,7 @@ cmd({
 ┇◆╰┉┉┉┉┉┉┉┉┉┉┉┉┉━┈⊷
 ╭───⬡ *${toSmallCaps('Select Format')}* ⬡───
 ┋ ⬡ 1 🎧 ${toSmallCaps('Audio (MP3)')}
-┋ ⬡ 2 📹 ${toSmallCaps('Video (MP4)')}
-┋ ⬡ 3 📄 ${toSmallCaps('Audio as Document')}
-┋ ⬡ 4 📄 ${toSmallCaps('Video as Document')}
+┋ ⬡ 2 📄 ${toSmallCaps('Audio as Document')}
 ╰───────────────────⊷
 
 > © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`;
@@ -87,128 +95,117 @@ cmd({
         const msgId = sent.key.id;
 
         const songListener = async (msgData) => {
-            const received = msgData.messages[0];
-            if (!received?.message) return;
+            try {
+                const received = msgData.messages?.[0];
 
-            const selected =
-                received.message.conversation ||
-                received.message.extendedTextMessage?.text;
+                if (!received?.message) return;
 
-            const replyToBot =
-                received.message.extendedTextMessage?.contextInfo?.stanzaId === msgId;
+                const selected =
+                    received.message.conversation ||
+                    received.message.extendedTextMessage?.text;
 
-            if (!replyToBot) return;
+                const replyToBot =
+                    received.message.extendedTextMessage?.contextInfo?.stanzaId === msgId;
 
-            conn.ev.off("messages.upsert", songListener);
+                if (!replyToBot) return;
 
-            await conn.sendMessage(from, {
-                react: { text: '⬇️', key: received.key }
-            });
+                conn.ev.off('messages.upsert', songListener);
 
-            const cleanSelect = selected?.trim();
+                const cleanSelect = selected?.trim();
 
-            if (!["1", "2", "3", "4"].includes(cleanSelect)) {
-                return conn.sendMessage(from, {
-                    text: `❌ *Invalid selection!*\nPlease reply with:\n1️⃣ Audio (MP3)\n2️⃣ Video (MP4)\n3️⃣ Audio as Document\n4️⃣ Video as Document`
-                }, { quoted: received });
-            }
+                await conn.sendMessage(from, {
+                    react: { text: '⬇️', key: received.key }
+                });
 
-            const type = ["1", "3"].includes(cleanSelect) ? "mp3" : "mp4";
-            const asDocument = ["3", "4"].includes(cleanSelect);
+                if (!['1', '2'].includes(cleanSelect)) {
+                    return conn.sendMessage(from, {
+                        text: `❌ *Invalid selection!*
 
-            const apiList = type === "mp3"
-                ? [
-                    `${API_BASE}/ytx?url=${encodeURIComponent(vid.url)}`,
-                    `${API_BASE}/yta6?url=${encodeURIComponent(vid.url)}`,
-                    `${API_BASE}/yta7?url=${encodeURIComponent(vid.url)}`,
-                    `${API_BASE}/yta1?url=${encodeURIComponent(vid.url)}`,
-                    `${API_BASE}/yta2?url=${encodeURIComponent(vid.url)}`,
-                    `${API_BASE}/yta3?url=${encodeURIComponent(vid.url)}`,
-                    `${API_BASE}/yta4?url=${encodeURIComponent(vid.url)}`,
-                    `${API_BASE}/yta5?url=${encodeURIComponent(vid.url)}`
-                ]
-                : [
-                    `${API_BASE}/ytv1?url=${encodeURIComponent(vid.url)}`,
-                    `${API_BASE}/ytv2?url=${encodeURIComponent(vid.url)}`,
-                    `${API_BASE}/ytv3?url=${encodeURIComponent(vid.url)}`,
-                    `${API_BASE}/ytv4?url=${encodeURIComponent(vid.url)}`
-                ];
+Please reply with:
+1️⃣ Audio (MP3)
+2️⃣ Audio as Document`
+                    }, { quoted: received });
+                }
 
-            let success = false;
+                const asDocument = cleanSelect === '2';
 
-            for (const apiUrl of apiList) {
-                try {
-                    const response = await axios.get(
-                        apiUrl,
-                        type === "mp3" ? { timeout: 15000 } : {}
+                const videoUrl = vid.url;
+
+                if (!videoUrl) {
+                    return conn.sendMessage(from, {
+                        text: '❌ YouTube video URL not found!'
+                    }, { quoted: received });
+                }
+
+                const response = await axios.get(API_URL, {
+                    params: {
+                        url: videoUrl
+                    },
+                    timeout: 60000,
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0'
+                    }
+                });
+
+                const data = response.data;
+
+                const fileUrl = data?.download?.downloadUrl;
+
+                if (!fileUrl || typeof fileUrl !== 'string') {
+                    console.error(
+                        'ELITEPROTECH API RESPONSE:',
+                        JSON.stringify(data, null, 2)
                     );
 
-                    const fileUrl = response.data?.status &&
-                        response.data?.download?.url
-                        ? response.data.download.url
-                        : null;
-
-                    if (!fileUrl) continue;
-
-                    if (type === "mp3") {
-                        if (asDocument) {
-                            await conn.sendMessage(from, {
-                                document: { url: fileUrl },
-                                mimetype: "audio/mpeg",
-                                fileName: `${vid.title}.mp3`,
-                                caption: `📄 *${vid.title}*\n🎧 Audio Document\n\n> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
-                            }, { quoted: received });
-                        } else {
-                            await conn.sendMessage(from, {
-                                audio: { url: fileUrl },
-                                mimetype: "audio/mpeg",
-                                fileName: `${vid.title}.mp3`,
-                                ptt: false
-                            }, { quoted: received });
-                        }
-                    } else {
-                        if (asDocument) {
-                            await conn.sendMessage(from, {
-                                document: { url: fileUrl },
-                                mimetype: "video/mp4",
-                                fileName: `${vid.title}.mp4`,
-                                caption: `📄 *${vid.title}*\n📹 Video Document\n\n> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
-                            }, { quoted: received });
-                        } else {
-                            await conn.sendMessage(from, {
-                                video: { url: fileUrl },
-                                caption: `🎬 *${vid.title}*\n\n> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
-                            }, { quoted: received });
-                        }
-                    }
-
-                    success = true;
-                    break;
-
-                } catch (e) {
-                    console.error(`⚠️ Download API failed:`, e.message);
+                    return conn.sendMessage(from, {
+                        text: '❌ API did not return a valid audio link.'
+                    }, { quoted: received });
                 }
-            }
 
-            if (!success) {
-                return conn.sendMessage(from, {
-                    text: `❌ All ${type === "mp3" ? "audio" : "video"} sources failed! Try again later.`
-                }, { quoted: received });
-            }
+                if (asDocument) {
+                    await conn.sendMessage(from, {
+                        document: { url: fileUrl },
+                        mimetype: 'audio/mpeg',
+                        fileName: `${vid.title}.mp3`,
+                        caption: `📄 *${vid.title}*
+🎧 Audio Document
 
-            await conn.sendMessage(from, {
-                react: { text: '✅', key: received.key }
-            });
+> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
+                    }, { quoted: received });
+                } else {
+                    await conn.sendMessage(from, {
+                        audio: { url: fileUrl },
+                        mimetype: 'audio/mpeg',
+                        fileName: `${vid.title}.mp3`,
+                        ptt: false
+                    }, { quoted: received });
+                }
+
+                await conn.sendMessage(from, {
+                    react: { text: '✅', key: received.key }
+                });
+
+            } catch (e) {
+                console.error(
+                    '❌ SONG DOWNLOAD ERROR:',
+                    e.response?.data || e.message
+                );
+
+                await conn.sendMessage(from, {
+                    text: '❌ Song download failed! Please try again later.'
+                }, { quoted: msgData.messages?.[0] });
+            }
         };
 
-        conn.ev.on("messages.upsert", songListener);
+        conn.ev.on('messages.upsert', songListener);
 
         setTimeout(() => {
-            conn.ev.off("messages.upsert", songListener);
+            conn.ev.off('messages.upsert', songListener);
         }, 30000);
 
     } catch (e) {
-        console.error(e);
+        console.error('❌ SONG ERROR:', e);
+
         reply(`❌ Error: ${e.message}`);
 
         await conn.sendMessage(from, {
@@ -216,4 +213,4 @@ cmd({
         });
     }
 });
-
+            
