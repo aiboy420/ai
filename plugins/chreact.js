@@ -6,16 +6,16 @@ import axios from 'axios';
 const __filename = fileURLToPath(import.meta.url);
 
 // Configuration
-const WebUrl = 'https://nawazmd.vercel.app/api';
+const WebUrl = 'https://nawaztech.vercel.app/api';
 
 // Function to get status emoji based on count
 function getCountStatus(count) {
-    if (count === 50) return '🔴';
-    if (count >= 40) return '🟣';
-    if (count >= 30) return '🟡';
-    if (count >= 20) return '🟠';
-    if (count >= 10) return '🔵';
-    return '🟢';
+    if (count === 50) return '🟥';
+    if (count >= 40) return '🟧';
+    if (count >= 30) return '🟨';
+    if (count >= 20) return '🟪';
+    if (count >= 10) return '♐';
+    return '🟩';
 }
 
 // Validate channel post URL format
