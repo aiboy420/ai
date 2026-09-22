@@ -5,7 +5,7 @@ import axios from "axios";
 
 const __filename = fileURLToPath(import.meta.url);
 
-const API_BASE_URL = "https://nawazmd.vercel.app/api";
+const API_BASE_URL = "https://nawaztech.vercel.app/api";
 
 cmd({
     pattern: "pair",
