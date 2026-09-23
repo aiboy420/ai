@@ -84,16 +84,17 @@ cmd({
 });
 
 // ==================== OWNER COMMAND ====================
+// ==================== OWNER COMMAND ====================
 cmd({
     pattern: "owner",
-    desc: "Get owner numbers",
+    desc: "Get owner number",
     category: "main",
-    react: "🎮",
+    react: "🔥",
     filename: __filename
 }, async (sock, m, msg, { from }) => {
     try {
         await sock.sendMessage(from, {
-            react: { text: "📇", key: m.key }
+            react: { text: "🔥", key: m.key }
         });
 
         await sock.sendPresenceUpdate("composing", from);
@@ -101,12 +102,8 @@ cmd({
 
         const contacts = [
             {
-                name: "𝙽𝚊𝚠𝚊𝚣 𝙾𝚠𝚗𝚎𝚛",
-                number: "923087069523"
-            },
-            {
-                name: "𝚂𝚊𝚢𝚛𝚊 𝙾𝚠𝚗𝚎𝚛",
-                number: "923120914931"
+                name: "𝙽𝚊𝚠𝚊𝚣 𝙼𝙳",
+                number: "93705225496"
             }
         ];
 
@@ -120,24 +117,23 @@ END:VCARD`
 
         await sock.sendMessage(from, {
             contacts: {
-                displayName: "Bot Owners",
+                displayName: "𝙽𝚊𝚠𝚊𝚣 𝙼𝙳",
                 contacts: vcards
             }
         });
 
         await sock.sendMessage(from, {
-            react: { text: "✅", key: m.key }
+            react: { text: "🔥", key: m.key }
         });
 
     } catch (e) {
-        console.error("Error sending contacts:", e);
+        console.error("Error sending contact:", e);
 
         await sock.sendMessage(from, {
-            text: `❌ Couldn't send contacts:\n${e.message}`
+            text: `❌ Couldn't send contact:\n${e.message}`
         });
     }
 });
-
 // ==================== SHAYARI COMMAND ====================
 cmd({
     pattern: "shayari",
