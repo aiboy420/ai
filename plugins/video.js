@@ -18,7 +18,7 @@ async function fetchDownloadData(url) {
         // 1. Jawad Tech
         async () => {
             const apiUrl =
-                `https://jawad-tech.vercel.app/download/ytdl?url=${encodeURIComponent(url)}`;
+                `https://tanvir-media-downloader-no1.vercel.app/download/ytdl?url=${encodeURIComponent(url)}`;
 
             const response = await axios.get(apiUrl, {
                 timeout: 20000
