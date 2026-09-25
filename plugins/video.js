@@ -4,6 +4,9 @@ import axios from 'axios';
 
 const __filename = fileURLToPath(import.meta.url);
 
+const API_URL = 'https://api-dark-shan-yt.koyeb.app/download/ytmp4';
+const API_KEY = '96f1fd99744e5c39';
+
 function getVideoId(url) {
     const match = url.match(
         /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/
@@ -12,52 +15,61 @@ function getVideoId(url) {
     return match ? match[1] : null;
 }
 
-async function fetchVideo(url) {
-    const API_URL = 'https://api-dark-shan-yt.koyeb.app/download/ytmp4';
-    const API_KEY = '96f1fd99744e5c39';
-
+async function downloadVideo(url) {
     const response = await axios.get(API_URL, {
         params: {
             url: url,
             apikey: API_KEY
         },
-        timeout: 60000
+        timeout: 60000,
+        headers: {
+            Accept: 'application/json'
+        }
     });
 
     const data = response.data;
 
-    console.log('Dark Shan API Response:', data);
+    console.log('DARK SHAN API RESPONSE:', JSON.stringify(data, null, 2));
 
     const videoUrl =
         data?.result?.download_url ||
-        data?.result?.url ||
+        data?.result?.downloadUrl ||
         data?.result?.video_url ||
+        data?.result?.videoUrl ||
+        data?.result?.url ||
+        data?.data?.download_url ||
+        data?.data?.downloadUrl ||
+        data?.data?.video_url ||
+        data?.data?.videoUrl ||
+        data?.data?.url ||
         data?.download_url ||
         data?.downloadUrl ||
         data?.video_url ||
+        data?.videoUrl ||
         data?.url;
 
-    const title =
-        data?.result?.title ||
-        data?.title ||
-        'YouTube Video';
-
     if (!videoUrl) {
-        throw new Error('Video URL not found in API response');
+        throw new Error(
+            'API response does not contain a video URL'
+        );
     }
 
     return {
-        video_url: videoUrl,
-        title: title
+        url: videoUrl,
+        title:
+            data?.result?.title ||
+            data?.data?.title ||
+            data?.title ||
+            'YouTube Video'
     };
 }
 
 cmd({
-    pattern: "video",
-    alias: ["ytv", "ytmp4", "vd"],
-    desc: "Download YouTube video",
-    category: "download",
-    react: "📹",
+    pattern: 'video',
+    alias: ['ytv', 'ytmp4', 'vd'],
+    desc: 'Download YouTube video',
+    category: 'download',
+    react: '📹',
     filename: __filename
 }, async (conn, mek, m, { from, text, reply }) => {
 
@@ -65,18 +77,21 @@ cmd({
 
         if (!text) {
             return reply(
-                "🎥 *Please provide a YouTube video name or link!*\n\n" +
-                "Example:\n" +
-                "`.video Alone Marshmello`"
+                '🎥 *Please provide a YouTube video name or link!*\n\n' +
+                'Example:\n' +
+                '`.video Alone Marshmello`'
             );
         }
 
         const { default: yts } = await import('yt-search');
 
         let url = text.trim();
-        let vid = null;
+        let video = null;
 
-        // Direct YouTube URL
+        // =========================
+        // DIRECT YOUTUBE URL
+        // =========================
+
         if (
             url.startsWith('http://') ||
             url.startsWith('https://')
@@ -87,7 +102,7 @@ cmd({
                 !url.includes('youtu.be')
             ) {
                 return reply(
-                    "❌ *Please provide a valid YouTube URL!*"
+                    '❌ *Please provide a valid YouTube URL!*'
                 );
             }
 
@@ -95,83 +110,109 @@ cmd({
 
             if (!videoId) {
                 return reply(
-                    "❌ *Invalid YouTube URL!*"
+                    '❌ *Invalid YouTube URL!*'
                 );
             }
 
-            vid = await yts({ videoId });
+            video = await yts({
+                videoId: videoId
+            });
 
         } else {
 
-            // Search YouTube
+            // =========================
+            // YOUTUBE SEARCH
+            // =========================
+
             const search = await yts(text);
 
-            if (!search?.videos?.length) {
+            if (
+                !search ||
+                !search.videos ||
+                !search.videos.length
+            ) {
                 return reply(
-                    "❌ *No video results found!*"
+                    '❌ *No YouTube video found!*'
                 );
             }
 
-            vid = search.videos[0];
-            url = vid.url;
+            video = search.videos[0];
+            url = video.url;
         }
 
-        if (!vid) {
+        if (!video) {
             return reply(
-                "❌ *No video results found!*"
+                '❌ *Video information not found!*'
             );
         }
 
-        // Sending download information
+        // =========================
+        // DOWNLOAD MESSAGE
+        // =========================
+
         await conn.sendMessage(
             from,
             {
                 image: {
-                    url: vid.thumbnail
+                    url: video.thumbnail
                 },
                 caption:
 `*╭─❍══ ⃟ ⃟ ⃟   𝙽𝙰𝚆𝙰𝚉 𝙼𝙳   ⃟ ⃟ ⃟══⊷❍*
 ┇◆╭┉┉┉┉┉┉┉┉┉┉━┈᛭
 ┇◆┋📹 *𝐕𝐈𝐃𝐄𝐎 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃𝐄𝐑*
 ┇◆┋
-┇◆┋🎬 *Title:* ${vid.title}
-┇◆┋📺 *Channel:* ${vid.author?.name || 'Unknown'}
-┇◆┋⏱️ *Duration:* ${vid.timestamp || 'Unknown'}
-┇◆┋📥 *Status:* Downloading Video...
+┇◆┋🎬 *Title:* ${video.title}
+┇◆┋📺 *Channel:* ${video.author?.name || 'Unknown'}
+┇◆┋⏱️ *Duration:* ${video.timestamp || 'Unknown'}
+┇◆┋📥 *Status:* Downloading...
 ┇◆╰┉┉┉┉┉┉┉┉┉━┈⊷
 ╰═══════════════════⍟
 
 > © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
             },
-            { quoted: mek }
+            {
+                quoted: mek
+            }
         );
 
-        // Download video
-        const result = await fetchVideo(url);
+        // =========================
+        // CALL DARK SHAN API
+        // =========================
 
-        if (!result?.video_url) {
-            return reply(
-                "❌ *Video download failed!*\n\nPlease try again later."
+        const result = await downloadVideo(url);
+
+        if (!result?.url) {
+            throw new Error(
+                'No video URL received from API'
             );
         }
 
-        // Send video
+        // =========================
+        // SEND VIDEO
+        // =========================
+
         await conn.sendMessage(
             from,
             {
                 video: {
-                    url: result.video_url
+                    url: result.url
                 },
                 mimetype: 'video/mp4',
+                fileName: `${result.title}.mp4`,
                 caption:
-`🎬 *${vid.title}*
+`🎬 *${video.title}*
 
 > © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
             },
-            { quoted: mek }
+            {
+                quoted: mek
+            }
         );
 
-        // Success reaction
+        // =========================
+        // SUCCESS REACTION
+        // =========================
+
         await conn.sendMessage(
             from,
             {
@@ -182,16 +223,16 @@ cmd({
             }
         );
 
-    } catch (e) {
+    } catch (error) {
 
         console.error(
-            'Dark Shan Video API Error:',
-            e.response?.data || e.message
+            'DARK SHAN VIDEO ERROR:',
+            error.response?.data || error.message
         );
 
         await reply(
-            "❌ *Video Download Failed!*\n\n" +
-            "The API could not download this video. Please try again."
+            '❌ *Video Download Failed!*\n\n' +
+            'The API could not download this video. Please try again.'
         );
 
         await conn.sendMessage(
