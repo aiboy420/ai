@@ -27,7 +27,7 @@ function normalizeYouTubeUrl(url) {
 async function fetchDownloadData(url, retries = 2) {
     try {
         const apiUrl =
-            `https://jawad-tech.vercel.app/download/ytdl?url=${encodeURIComponent(url)}`;
+            `https://api-dark-shan-yt.koyeb.app/download/ytmp4?url=${encodeURIComponent(url)}&apikey=96f1fd99744e5c39`;
 
         const response = await axios.get(apiUrl, {
             timeout: 20000
