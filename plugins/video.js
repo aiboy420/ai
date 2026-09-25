@@ -11,11 +11,45 @@ function getVideoId(url) {
     const match = url.match(
         /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/
     );
-
     return match ? match[1] : null;
 }
 
-async function downloadVideo(url) {
+function findVideoUrl(obj) {
+    if (!obj || typeof obj !== 'object') return null;
+
+    const keys = [
+        'url',
+        'download_url',
+        'downloadUrl',
+        'video_url',
+        'videoUrl',
+        'download',
+        'video',
+        'link'
+    ];
+
+    for (const key of keys) {
+        if (typeof obj[key] === 'string' &&
+            /^https?:\/\//i.test(obj[key])) {
+            return obj[key];
+        }
+    }
+
+    for (const key of Object.keys(obj)) {
+        const value = obj[key];
+
+        if (value && typeof value === 'object') {
+            const result = findVideoUrl(value);
+
+            if (result) return result;
+        }
+    }
+
+    return null;
+}
+
+async function getVideo(url) {
+
     const response = await axios.get(API_URL, {
         params: {
             url: url,
@@ -29,29 +63,15 @@ async function downloadVideo(url) {
 
     const data = response.data;
 
-    console.log('DARK SHAN API RESPONSE:', JSON.stringify(data, null, 2));
+    console.log(
+        'DARK SHAN RESPONSE:',
+        JSON.stringify(data, null, 2)
+    );
 
-    const videoUrl =
-        data?.result?.download_url ||
-        data?.result?.downloadUrl ||
-        data?.result?.video_url ||
-        data?.result?.videoUrl ||
-        data?.result?.url ||
-        data?.data?.download_url ||
-        data?.data?.downloadUrl ||
-        data?.data?.video_url ||
-        data?.data?.videoUrl ||
-        data?.data?.url ||
-        data?.download_url ||
-        data?.downloadUrl ||
-        data?.video_url ||
-        data?.videoUrl ||
-        data?.url;
+    const videoUrl = findVideoUrl(data);
 
     if (!videoUrl) {
-        throw new Error(
-            'API response does not contain a video URL'
-        );
+        throw new Error('No video URL found in API response');
     }
 
     return {
@@ -77,7 +97,7 @@ cmd({
 
         if (!text) {
             return reply(
-                '🎥 *Please provide a YouTube video name or link!*\n\n' +
+                '🎥 *Please provide YouTube video name or link!*\n\n' +
                 'Example:\n' +
                 '`.video Alone Marshmello`'
             );
@@ -86,11 +106,7 @@ cmd({
         const { default: yts } = await import('yt-search');
 
         let url = text.trim();
-        let video = null;
-
-        // =========================
-        // DIRECT YOUTUBE URL
-        // =========================
+        let vid;
 
         if (
             url.startsWith('http://') ||
@@ -101,95 +117,57 @@ cmd({
                 !url.includes('youtube.com') &&
                 !url.includes('youtu.be')
             ) {
-                return reply(
-                    '❌ *Please provide a valid YouTube URL!*'
-                );
+                return reply('❌ *Please provide a valid YouTube URL!*');
             }
 
             const videoId = getVideoId(url);
 
             if (!videoId) {
-                return reply(
-                    '❌ *Invalid YouTube URL!*'
-                );
+                return reply('❌ *Invalid YouTube URL!*');
             }
 
-            video = await yts({
-                videoId: videoId
-            });
+            vid = await yts({ videoId });
 
         } else {
 
-            // =========================
-            // YOUTUBE SEARCH
-            // =========================
-
             const search = await yts(text);
 
-            if (
-                !search ||
-                !search.videos ||
-                !search.videos.length
-            ) {
-                return reply(
-                    '❌ *No YouTube video found!*'
-                );
+            if (!search?.videos?.length) {
+                return reply('❌ *No video results found!*');
             }
 
-            video = search.videos[0];
-            url = video.url;
+            vid = search.videos[0];
+            url = vid.url;
         }
 
-        if (!video) {
-            return reply(
-                '❌ *Video information not found!*'
-            );
+        if (!vid) {
+            return reply('❌ *Video not found!*');
         }
-
-        // =========================
-        // DOWNLOAD MESSAGE
-        // =========================
 
         await conn.sendMessage(
             from,
             {
                 image: {
-                    url: video.thumbnail
+                    url: vid.thumbnail
                 },
                 caption:
 `*╭─❍══ ⃟ ⃟ ⃟   𝙽𝙰𝚆𝙰𝚉 𝙼𝙳   ⃟ ⃟ ⃟══⊷❍*
 ┇◆╭┉┉┉┉┉┉┉┉┉┉━┈᛭
 ┇◆┋📹 *𝐕𝐈𝐃𝐄𝐎 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃𝐄𝐑*
 ┇◆┋
-┇◆┋🎬 *Title:* ${video.title}
-┇◆┋📺 *Channel:* ${video.author?.name || 'Unknown'}
-┇◆┋⏱️ *Duration:* ${video.timestamp || 'Unknown'}
+┇◆┋🎬 *Title:* ${vid.title}
+┇◆┋📺 *Channel:* ${vid.author?.name || 'Unknown'}
+┇◆┋⏱️ *Duration:* ${vid.timestamp || 'Unknown'}
 ┇◆┋📥 *Status:* Downloading...
 ┇◆╰┉┉┉┉┉┉┉┉┉━┈⊷
 ╰═══════════════════⍟
 
 > © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
             },
-            {
-                quoted: mek
-            }
+            { quoted: mek }
         );
 
-        // =========================
-        // CALL DARK SHAN API
-        // =========================
-
-        const result = await downloadVideo(url);
-
-        if (!result?.url) {
-            throw new Error(
-                'No video URL received from API'
-            );
-        }
-
-        // =========================
-        // SEND VIDEO
-        // =========================
+        const result = await getVideo(url);
 
         await conn.sendMessage(
             from,
@@ -200,18 +178,12 @@ cmd({
                 mimetype: 'video/mp4',
                 fileName: `${result.title}.mp4`,
                 caption:
-`🎬 *${video.title}*
+`🎬 *${vid.title}*
 
 > © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
             },
-            {
-                quoted: mek
-            }
+            { quoted: mek }
         );
-
-        // =========================
-        // SUCCESS REACTION
-        // =========================
 
         await conn.sendMessage(
             from,
@@ -232,7 +204,7 @@ cmd({
 
         await reply(
             '❌ *Video Download Failed!*\n\n' +
-            'The API could not download this video. Please try again.'
+            'API response does not contain a usable video link.'
         );
 
         await conn.sendMessage(
