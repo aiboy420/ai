@@ -10,7 +10,6 @@ import axios from 'axios';
 const __filename = fileURLToPath(import.meta.url);
 const require = createRequire(import.meta.url);
 
-// Optional direct YouTube fallback
 let ytdl = null;
 
 try {
@@ -25,9 +24,6 @@ try {
 
 const MAX_FILE_SIZE = 95 * 1024 * 1024;
 
-/**
- * Normalize YouTube URL
- */
 function normalizeYouTubeUrl(url) {
     const match = url.match(
         /(?:youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/.*[?&]v=)([a-zA-Z0-9_-]{11})/
@@ -38,9 +34,6 @@ function normalizeYouTubeUrl(url) {
         : null;
 }
 
-/**
- * Common Axios Config
- */
 const AXIOS_CONFIG = {
     timeout: 30000,
     headers: {
@@ -50,9 +43,6 @@ const AXIOS_CONFIG = {
     }
 };
 
-/**
- * Extract download URL from different API responses
- */
 function extractDownloadUrl(data) {
     if (!data) return null;
 
@@ -76,9 +66,7 @@ function extractDownloadUrl(data) {
     );
 }
 
-/**
- * 1. Dark Shan API
- */
+// 1. Dark Shan API
 async function darkShanAPI(url) {
     const apiUrl =
         `https://api-dark-shan-yt.koyeb.app/download/ytmp4?url=${encodeURIComponent(url)}&apikey=72209ca3742e5a36`;
@@ -100,9 +88,7 @@ async function darkShanAPI(url) {
     };
 }
 
-/**
- * 2. CypherX API
- */
+// 2. CypherX API
 async function cypherXAPI(url) {
     const apiUrl =
         `https://media.cypherxbot.space/download/youtube/video?url=${encodeURIComponent(url)}`;
@@ -120,9 +106,7 @@ async function cypherXAPI(url) {
     };
 }
 
-/**
- * 3. PrinceTech API
- */
+// 3. PrinceTech API
 async function princeTechAPI(url) {
     const apiUrl =
         `https://api.princetechn.com/api/download/ytvideo?url=${encodeURIComponent(url)}&apikey=prince`;
@@ -140,9 +124,7 @@ async function princeTechAPI(url) {
     };
 }
 
-/**
- * 4. Keith / David APIs
- */
+// 4. Keith / David APIs
 async function keithAPI(url) {
     const apis = [
         `https://apiskeith.top/download/video?url=${encodeURIComponent(url)}`,
@@ -166,10 +148,7 @@ async function keithAPI(url) {
 
             return {
                 video_url: videoUrl,
-                title:
-                    result?.title ||
-                    data?.title ||
-                    'YouTube Video'
+                title: result?.title || data?.title || 'YouTube Video'
             };
 
         } catch (error) {
@@ -180,9 +159,7 @@ async function keithAPI(url) {
     throw lastError || new Error('Keith/David APIs failed');
 }
 
-/**
- * 5. Direct YouTube fallback
- */
+// 5. Direct YouTube fallback
 async function directYouTubeAPI(url) {
     if (!ytdl) {
         throw new Error('ytdl-core not installed');
@@ -206,15 +183,11 @@ async function directYouTubeAPI(url) {
 
     return {
         video_url: format.url,
-        title:
-            info.videoDetails?.title ||
-            'YouTube Video'
+        title: info.videoDetails?.title || 'YouTube Video'
     };
 }
 
-/**
- * Download video from resolved URL
- */
+// Download video
 async function downloadVideo(videoUrl) {
     const response = await axios.get(videoUrl, {
         responseType: 'arraybuffer',
@@ -236,9 +209,7 @@ async function downloadVideo(videoUrl) {
     return buffer;
 }
 
-/**
- * Get Download Link With Multiple Fallback APIs
- */
+// Multiple API fallback
 async function fetchDownloadData(url) {
 
     const apis = [
@@ -287,7 +258,6 @@ async function fetchDownloadData(url) {
                 `[VIDEO] ❌ ${api.name} failed:`,
                 error?.message || error
             );
-
         }
     }
 
@@ -324,7 +294,6 @@ cmd(
 
             // SEARCH VIDEO
             const normalizedUrl = normalizeYouTubeUrl(q);
-
             let ytdata;
 
             if (normalizedUrl) {
@@ -332,17 +301,13 @@ cmd(
                 const videoId = normalizedUrl.split("v=")[1];
 
                 try {
-
                     ytdata = await yts({ videoId });
-
                 } catch {
-
                     ytdata = {
                         url: normalizedUrl,
                         title: "YouTube Video",
                         timestamp: "Unknown"
                     };
-
                 }
 
             } else {
@@ -360,26 +325,20 @@ cmd(
                 return reply("❌ No video found!");
             }
 
-            // VIDEO INFO - NAWAZ MD STYLE
-            const infoText = `*╭─❍══ ⃟ ⃟ ⃟   𝙽𝙰𝚆𝙰𝚉 𝙼𝙳   ⃟ ⃟ ⃟══⊷❍*
-┇◆╭┉┉┉┉┉┉┉┉┉┉━┈᛭
-┇◆┋📹 *𝐕𝐈𝐃𝐄𝐎 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃𝐄𝐑*
-┇◆┋
-┇◆┋🎬 *Title:* ${ytdata.title}
-┇◆┋📺 *Channel:* ${ytdata.author?.name || "Unknown"}
-┇◆┋⏱️ *Duration:* ${ytdata.timestamp || "Unknown"}
-┇◆┋👁️ *Views:* ${ytdata.views?.toLocaleString?.() || "Unknown"}
-┇◆┋📥 *Status:* Downloading Video...
-┇◆╰┉┉┉┉┉┉┉┉┉┉┉┉┉━┈⊷
-╰═══════════════════⍟
+            // CLEAN CAPTION
+            const caption = `🎬 *${ytdata.title}*
 
-> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`;
+📺 *${ytdata.author?.name || 'Unknown'}*
+⏱️ ${ytdata.timestamp || 'Unknown'}
 
+📥 *Downloading Video...*`;
+
+            // SEND VIDEO INFO WITH ONLY CLEAN CAPTION
             await conn.sendMessage(from, {
                 image: {
                     url: ytdata.thumbnail || ytdata.image
                 },
-                caption: infoText
+                caption
             }, {
                 quoted: mek
             });
@@ -447,9 +406,7 @@ cmd(
             await conn.sendMessage(from, {
                 video: videoBuffer,
                 mimetype: "video/mp4",
-                caption:
-                    `🎬 *${dlData.title || ytdata.title}*\n\n` +
-                    `> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
+                caption: `🎬 *${dlData.title || ytdata.title}*`
             }, {
                 quoted: mek
             });
