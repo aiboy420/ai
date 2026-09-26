@@ -1,5 +1,5 @@
 // drama.js - ESM Version
-// NAWAZ MD - YOUTUBE VIDEO DOWNLOADER
+// NAWAZ MD - DRAMA VIDEO DOWNLOADER
 
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
@@ -24,6 +24,18 @@ try {
 
 const MAX_FILE_SIZE = 95 * 1024 * 1024;
 
+const AXIOS_CONFIG = {
+    timeout: 30000,
+    headers: {
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*'
+    }
+};
+
+/**
+ * Normalize YouTube URL
+ */
 function normalizeYouTubeUrl(url) {
     const match = url.match(
         /(?:youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/.*[?&]v=)([a-zA-Z0-9_-]{11})/
@@ -34,15 +46,112 @@ function normalizeYouTubeUrl(url) {
         : null;
 }
 
-const AXIOS_CONFIG = {
-    timeout: 30000,
-    headers: {
-        'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*'
-    }
-};
+/**
+ * Drama keywords
+ */
+const DRAMA_KEYWORDS = [
+    'drama',
+    'episode',
+    'ep ',
+    'ep.',
+    'season',
+    'serial',
+    'telefilm',
+    'tv serial',
+    'pakistani drama',
+    'pakistan drama',
+    'turkish drama',
+    'korean drama',
+    'indian drama',
+    'web series',
+    'official episode',
+    'full episode',
+    'complete episode',
+    'part 1',
+    'part 2',
+    'part 3',
+    'part 4',
+    'part 1',
+    'ost episode'
+];
 
+/**
+ * Words that should NOT be accepted as drama
+ */
+const NON_DRAMA_KEYWORDS = [
+    'song',
+    'songs',
+    'music',
+    'official music video',
+    'music video',
+    'lyrics',
+    'lyric',
+    'remix',
+    'mashup',
+    'dj',
+    'audio',
+    'lofi',
+    'cover',
+    'slowed',
+    'reverb',
+    'status',
+    'shorts',
+    'short',
+    'edit',
+    'edits',
+    'nasheed',
+    'qawwali',
+    'recitation'
+];
+
+/**
+ * Check whether a result looks like a drama
+ */
+function isDramaVideo(video) {
+    if (!video?.title) return false;
+
+    const text = `${video.title} ${video.description || ''}`.toLowerCase();
+
+    // Reject obvious music/video content
+    for (const word of NON_DRAMA_KEYWORDS) {
+        if (text.includes(word)) {
+            return false;
+        }
+    }
+
+    // Accept drama indicators
+    for (const word of DRAMA_KEYWORDS) {
+        if (text.includes(word)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Search only drama results
+ */
+async function searchDrama(query) {
+    const results = await yts(query);
+
+    if (!results?.videos?.length) {
+        return null;
+    }
+
+    // First try strict drama filtering
+    const dramaResults = results.videos.filter(isDramaVideo);
+
+    if (!dramaResults.length) {
+        return null;
+    }
+
+    return dramaResults[0];
+}
+
+/**
+ * Extract download URL
+ */
 function extractDownloadUrl(data) {
     if (!data) return null;
 
@@ -66,7 +175,9 @@ function extractDownloadUrl(data) {
     );
 }
 
-// 1. Dark Shan API
+/**
+ * 1. Dark Shan API
+ */
 async function darkShanAPI(url) {
     const apiUrl =
         `https://api-dark-shan-yt.koyeb.app/download/ytmp4?url=${encodeURIComponent(url)}&apikey=72209ca3742e5a36`;
@@ -84,11 +195,13 @@ async function darkShanAPI(url) {
 
     return {
         video_url: videoUrl,
-        title: result?.title || data?.title || 'YouTube Video'
+        title: result?.title || data?.title || 'Drama Video'
     };
 }
 
-// 2. CypherX API
+/**
+ * 2. CypherX API
+ */
 async function cypherXAPI(url) {
     const apiUrl =
         `https://media.cypherxbot.space/download/youtube/video?url=${encodeURIComponent(url)}`;
@@ -102,11 +215,13 @@ async function cypherXAPI(url) {
 
     return {
         video_url: data.result.download_url,
-        title: data.result.title || 'YouTube Video'
+        title: data.result.title || 'Drama Video'
     };
 }
 
-// 3. PrinceTech API
+/**
+ * 3. PrinceTech API
+ */
 async function princeTechAPI(url) {
     const apiUrl =
         `https://api.princetechn.com/api/download/ytvideo?url=${encodeURIComponent(url)}&apikey=prince`;
@@ -120,11 +235,13 @@ async function princeTechAPI(url) {
 
     return {
         video_url: data.result.download_url,
-        title: data.result.title || 'YouTube Video'
+        title: data.result.title || 'Drama Video'
     };
 }
 
-// 4. Keith / David APIs
+/**
+ * 4. Keith / David APIs
+ */
 async function keithAPI(url) {
     const apis = [
         `https://apiskeith.top/download/video?url=${encodeURIComponent(url)}`,
@@ -148,7 +265,7 @@ async function keithAPI(url) {
 
             return {
                 video_url: videoUrl,
-                title: result?.title || data?.title || 'YouTube Video'
+                title: result?.title || data?.title || 'Drama Video'
             };
 
         } catch (error) {
@@ -159,7 +276,9 @@ async function keithAPI(url) {
     throw lastError || new Error('Keith/David APIs failed');
 }
 
-// 5. Direct YouTube fallback
+/**
+ * 5. Direct YouTube fallback
+ */
 async function directYouTubeAPI(url) {
     if (!ytdl) {
         throw new Error('ytdl-core not installed');
@@ -183,11 +302,13 @@ async function directYouTubeAPI(url) {
 
     return {
         video_url: format.url,
-        title: info.videoDetails?.title || 'YouTube Video'
+        title: info.videoDetails?.title || 'Drama Video'
     };
 }
 
-// Download video
+/**
+ * Download video
+ */
 async function downloadVideo(videoUrl) {
     const response = await axios.get(videoUrl, {
         responseType: 'arraybuffer',
@@ -209,7 +330,9 @@ async function downloadVideo(videoUrl) {
     return buffer;
 }
 
-// Multiple API fallback
+/**
+ * Multiple API fallback
+ */
 async function fetchDownloadData(url) {
 
     const apis = [
@@ -238,39 +361,36 @@ async function fetchDownloadData(url) {
     let lastError;
 
     for (const api of apis) {
-
         try {
-
-            console.log(`[VIDEO] Trying ${api.name}...`);
+            console.log(`[DRAMA] Trying ${api.name}...`);
 
             const data = await api.fn();
 
             if (data?.video_url) {
-                console.log(`[VIDEO] ✅ ${api.name} resolved video`);
+                console.log(`[DRAMA] ✅ ${api.name} resolved video`);
                 return data;
             }
 
         } catch (error) {
-
             lastError = error;
 
             console.log(
-                `[VIDEO] ❌ ${api.name} failed:`,
+                `[DRAMA] ❌ ${api.name} failed:`,
                 error?.message || error
             );
         }
     }
 
-    throw lastError || new Error('All download APIs failed');
+    throw lastError || new Error('All drama download APIs failed');
 }
 
 // MAIN COMMAND
 cmd(
     {
         pattern: "drama",
-        alias: ["ytmp4", "vdl"],
-        react: "🔁",
-        desc: "YouTube Video Downloader",
+        alias: ["dramaep", "serial"],
+        react: "🎬",
+        desc: "Drama Video Downloader",
         category: "download",
         filename: __filename
     },
@@ -281,7 +401,7 @@ cmd(
 
             if (!q) {
                 return reply(
-                    `🎥 *Usage:* ${prefix + command} video name or link`
+                    `🎬 *Usage:* ${prefix + command} drama name or episode\n\nExample:\n${prefix + command} Mere Humsafar Episode 1`
                 );
             }
 
@@ -292,7 +412,10 @@ cmd(
                 }
             });
 
-            // SEARCH VIDEO
+            /**
+             * If direct YouTube URL is provided,
+             * verify that its title looks like a drama.
+             */
             const normalizedUrl = normalizeYouTubeUrl(q);
             let ytdata;
 
@@ -303,45 +426,59 @@ cmd(
                 try {
                     ytdata = await yts({ videoId });
                 } catch {
-                    ytdata = {
-                        url: normalizedUrl,
-                        title: "YouTube Video",
-                        timestamp: "Unknown"
-                    };
+                    return reply(
+                        "❌ This does not appear to be a drama video."
+                    );
+                }
+
+                if (!ytdata || !isDramaVideo(ytdata)) {
+                    return reply(
+                        "❌ Only drama/serial/episode videos are allowed in this command."
+                    );
                 }
 
             } else {
 
-                const searchResults = await yts(q);
+                ytdata = await searchDrama(q);
 
-                if (!searchResults.videos?.length) {
-                    return reply("❌ No video found!");
+                if (!ytdata) {
+                    return reply(
+                        "❌ No drama found!\n\nPlease enter a drama name or episode, not a song/music video."
+                    );
                 }
-
-                ytdata = searchResults.videos[0];
             }
 
             if (!ytdata) {
-                return reply("❌ No video found!");
+                return reply("❌ No drama found!");
             }
 
-            // CLEAN CAPTION
+            // CLEAN DRAMA CAPTION
             const caption = `🎬 *${ytdata.title}*
 
 📺 *${ytdata.author?.name || 'Unknown'}*
 ⏱️ ${ytdata.timestamp || 'Unknown'}
 
-📥 *Downloading Video...*`;
+📥 *Downloading Drama...*
 
-            // SEND VIDEO INFO WITH ONLY CLEAN CAPTION
-            await conn.sendMessage(from, {
-                image: {
-                    url: ytdata.thumbnail || ytdata.image
-                },
-                caption
-            }, {
-                quoted: mek
-            });
+> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`;
+
+            // SEND DRAMA INFO
+            if (ytdata.thumbnail || ytdata.image) {
+                await conn.sendMessage(from, {
+                    image: {
+                        url: ytdata.thumbnail || ytdata.image
+                    },
+                    caption
+                }, {
+                    quoted: mek
+                });
+            } else {
+                await conn.sendMessage(from, {
+                    text: caption
+                }, {
+                    quoted: mek
+                });
+            }
 
             await conn.sendMessage(from, {
                 react: {
@@ -362,17 +499,19 @@ cmd(
             } catch (error) {
 
                 console.log(
-                    "[VIDEO] ALL APIs FAILED:",
+                    "[DRAMA] ALL APIs FAILED:",
                     error?.message || error
                 );
 
                 return reply(
-                    "❌ All video download sources are currently unavailable. Please try again."
+                    "❌ All drama download sources are currently unavailable. Please try again."
                 );
             }
 
             if (!dlData?.video_url) {
-                return reply("❌ Video link not found or expired!");
+                return reply(
+                    "❌ Drama video link not found or expired!"
+                );
             }
 
             // DOWNLOAD VIDEO
@@ -387,26 +526,28 @@ cmd(
             } catch (err) {
 
                 console.log(
-                    "VIDEO DOWNLOAD ERROR:",
+                    "DRAMA VIDEO DOWNLOAD ERROR:",
                     err?.message || err
                 );
 
                 if (/large|size/i.test(err?.message || "")) {
                     return reply(
-                        "📦 Video is too large to send on WhatsApp."
+                        "📦 Drama video is too large to send on WhatsApp."
                     );
                 }
 
                 return reply(
-                    "❌ Video download failed. The download link may have expired."
+                    "❌ Drama video download failed. Please try again."
                 );
             }
 
-            // SEND VIDEO
+            // SEND DRAMA VIDEO
             await conn.sendMessage(from, {
                 video: videoBuffer,
                 mimetype: "video/mp4",
-                caption: `🎬 *${dlData.title || ytdata.title}*`
+                caption: `🎬 *${dlData.title || ytdata.title}*
+
+> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
             }, {
                 quoted: mek
             });
