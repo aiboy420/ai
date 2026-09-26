@@ -1,5 +1,5 @@
 // drama.js - ESM Version
-// NAWAZ MD - DRAMA DOCUMENT DOWNLOADER
+// NAWAZ MD - YOUTUBE VIDEO DOWNLOADER
 
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
@@ -24,20 +24,6 @@ try {
 
 const MAX_FILE_SIZE = 95 * 1024 * 1024;
 
-const AXIOS_CONFIG = {
-    timeout: 30000,
-    maxRedirects: 5,
-    headers: {
-        'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*'
-    }
-};
-
-/* =========================
-   YOUTUBE URL
-========================= */
-
 function normalizeYouTubeUrl(url) {
     const match = url.match(
         /(?:youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/.*[?&]v=)([a-zA-Z0-9_-]{11})/
@@ -48,212 +34,39 @@ function normalizeYouTubeUrl(url) {
         : null;
 }
 
-/* =========================
-   DRAMA FILTER
-========================= */
-
-const DRAMA_KEYWORDS = [
-    'drama',
-    'episode',
-    'episode ',
-    'ep ',
-    'ep.',
-    'season',
-    'serial',
-    'telefilm',
-    'tv serial',
-    'pakistani drama',
-    'pakistan drama',
-    'turkish drama',
-    'korean drama',
-    'indian drama',
-    'web series',
-    'official episode',
-    'full episode',
-    'complete episode',
-    'part 1',
-    'part 2',
-    'part 3',
-    'part 4',
-    'ost episode'
-];
-
-const NON_DRAMA_KEYWORDS = [
-    'song',
-    'songs',
-    'music',
-    'official music video',
-    'music video',
-    'lyrics',
-    'lyric',
-    'remix',
-    'mashup',
-    'dj',
-    'audio',
-    'lofi',
-    'cover',
-    'slowed',
-    'reverb',
-    'status',
-    'shorts',
-    'short',
-    'edit',
-    'edits',
-    'nasheed',
-    'qawwali',
-    'recitation'
-];
-
-function isDramaVideo(video) {
-    if (!video?.title) return false;
-
-    const text = `${video.title} ${video.description || ''}`.toLowerCase();
-
-    for (const word of NON_DRAMA_KEYWORDS) {
-        if (text.includes(word)) {
-            return false;
-        }
+const AXIOS_CONFIG = {
+    timeout: 30000,
+    headers: {
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*'
     }
-
-    for (const word of DRAMA_KEYWORDS) {
-        if (text.includes(word)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-/* =========================
-   DRAMA SEARCH
-========================= */
-
-async function searchDrama(query) {
-    const results = await yts(query);
-
-    if (!results?.videos?.length) {
-        return null;
-    }
-
-    const dramaResults = results.videos.filter(isDramaVideo);
-
-    if (!dramaResults.length) {
-        return null;
-    }
-
-    return dramaResults[0];
-}
-
-/* =========================
-   EXTRACT URL
-========================= */
+};
 
 function extractDownloadUrl(data) {
     if (!data) return null;
 
-    if (typeof data === 'string') {
-        if (/^https?:\/\//i.test(data)) {
-            return data;
-        }
+    const result = data.result || data.data || data;
 
-        return null;
+    if (typeof result === 'string' && result.startsWith('http')) {
+        return result;
     }
 
-    if (Array.isArray(data)) {
-        for (const item of data) {
-            const found = extractDownloadUrl(item);
-            if (found) return found;
-        }
-
-        return null;
-    }
-
-    const directKeys = [
-        'mp4',
-        'mp4_url',
-        'download_url',
-        'downloadUrl',
-        'download',
-        'url',
-        'link',
-        'video',
-        'video_url',
-        'videoUrl',
-        'file',
-        'file_url',
-        'fileUrl'
-    ];
-
-    for (const key of directKeys) {
-        const value = data?.[key];
-
-        if (typeof value === 'string' && /^https?:\/\//i.test(value)) {
-            return value;
-        }
-
-        if (value && typeof value === 'object') {
-            const found = extractDownloadUrl(value);
-            if (found) return found;
-        }
-    }
-
-    const nestedKeys = [
-        'result',
-        'data',
-        'response',
-        'media',
-        'download',
-        'downloads'
-    ];
-
-    for (const key of nestedKeys) {
-        if (data?.[key]) {
-            const found = extractDownloadUrl(data[key]);
-
-            if (found) {
-                return found;
-            }
-        }
-    }
-
-    return null;
+    return (
+        result?.mp4 ||
+        result?.download_url ||
+        result?.download ||
+        result?.url ||
+        result?.link ||
+        result?.video ||
+        result?.video_url ||
+        data?.download_url ||
+        data?.url ||
+        null
+    );
 }
 
-/* =========================
-   TITLE EXTRACTOR
-========================= */
-
-function extractTitle(data, fallback = 'Drama Video') {
-    if (!data) return fallback;
-
-    const objects = [
-        data,
-        data.result,
-        data.data,
-        data.response
-    ];
-
-    for (const obj of objects) {
-        if (!obj || typeof obj !== 'object') continue;
-
-        const title =
-            obj.title ||
-            obj.name ||
-            obj.filename ||
-            obj.fileName;
-
-        if (title && typeof title === 'string') {
-            return title;
-        }
-    }
-
-    return fallback;
-}
-
-/* =========================
-   1. DARK SHAN
-========================= */
-
+// 1. Dark Shan API
 async function darkShanAPI(url) {
     const apiUrl =
         `https://api-dark-shan-yt.koyeb.app/download/ytmp4?url=${encodeURIComponent(url)}&apikey=72209ca3742e5a36`;
@@ -264,19 +77,18 @@ async function darkShanAPI(url) {
     const videoUrl = extractDownloadUrl(data);
 
     if (!videoUrl) {
-        throw new Error('Dark Shan returned no video URL');
+        throw new Error('Dark Shan: video URL not found');
     }
+
+    const result = data.result || data.data || {};
 
     return {
         video_url: videoUrl,
-        title: extractTitle(data)
+        title: result?.title || data?.title || 'YouTube Video'
     };
 }
 
-/* =========================
-   2. CYPHERX
-========================= */
-
+// 2. CypherX API
 async function cypherXAPI(url) {
     const apiUrl =
         `https://media.cypherxbot.space/download/youtube/video?url=${encodeURIComponent(url)}`;
@@ -284,22 +96,17 @@ async function cypherXAPI(url) {
     const response = await axios.get(apiUrl, AXIOS_CONFIG);
     const data = response.data;
 
-    const videoUrl = extractDownloadUrl(data);
-
-    if (!videoUrl) {
-        throw new Error('CypherX returned no video URL');
+    if (!data?.success || !data?.result?.download_url) {
+        throw new Error('CypherX: video URL not found');
     }
 
     return {
-        video_url: videoUrl,
-        title: extractTitle(data)
+        video_url: data.result.download_url,
+        title: data.result.title || 'YouTube Video'
     };
 }
 
-/* =========================
-   3. PRINCE TECH
-========================= */
-
+// 3. PrinceTech API
 async function princeTechAPI(url) {
     const apiUrl =
         `https://api.princetechn.com/api/download/ytvideo?url=${encodeURIComponent(url)}&apikey=prince`;
@@ -307,53 +114,41 @@ async function princeTechAPI(url) {
     const response = await axios.get(apiUrl, AXIOS_CONFIG);
     const data = response.data;
 
-    const videoUrl = extractDownloadUrl(data);
-
-    if (!videoUrl) {
-        throw new Error('PrinceTech returned no video URL');
+    if (!data?.success || !data?.result?.download_url) {
+        throw new Error('PrinceTech: video URL not found');
     }
 
     return {
-        video_url: videoUrl,
-        title: extractTitle(data)
+        video_url: data.result.download_url,
+        title: data.result.title || 'YouTube Video'
     };
 }
 
-/* =========================
-   4. KEITH / DAVID
-========================= */
-
-async function keithDavidAPI(url) {
+// 4. Keith / David APIs
+async function keithAPI(url) {
     const apis = [
         `https://apiskeith.top/download/video?url=${encodeURIComponent(url)}`,
-
         `https://apiskeith.top/download/ytmp4?url=${encodeURIComponent(url)}`,
-
         `https://apis.davidcyril.name.ng/download/ytmp4?url=${encodeURIComponent(url)}`,
-
         `https://apis.davidcyril.name.ng/youtube/mp4?url=${encodeURIComponent(url)}`
     ];
 
-    let lastError = null;
+    let lastError;
 
     for (const apiUrl of apis) {
         try {
-            const response = await axios.get(
-                apiUrl,
-                AXIOS_CONFIG
-            );
-
+            const response = await axios.get(apiUrl, AXIOS_CONFIG);
             const data = response.data;
 
             const videoUrl = extractDownloadUrl(data);
 
-            if (!videoUrl) {
-                continue;
-            }
+            if (!videoUrl) continue;
+
+            const result = data.result || data.data || {};
 
             return {
                 video_url: videoUrl,
-                title: extractTitle(data)
+                title: result?.title || data?.title || 'YouTube Video'
             };
 
         } catch (error) {
@@ -364,81 +159,47 @@ async function keithDavidAPI(url) {
     throw lastError || new Error('Keith/David APIs failed');
 }
 
-/* =========================
-   5. DIRECT YOUTUBE
-========================= */
-
+// 5. Direct YouTube fallback
 async function directYouTubeAPI(url) {
     if (!ytdl) {
-        throw new Error(
-            '@distube/ytdl-core or ytdl-core is not installed'
-        );
+        throw new Error('ytdl-core not installed');
     }
 
     const info = await ytdl.getInfo(url);
 
-    let format = null;
-
-    try {
-        format = ytdl.chooseFormat(
-            info.formats,
-            {
-                quality: 'highest',
-                filter: 'audioandvideo'
-            }
-        );
-    } catch {}
+    const format =
+        ytdl.chooseFormat(info.formats, {
+            quality: 'highestvideo',
+            filter: 'videoandaudio'
+        }) ||
+        ytdl.chooseFormat(info.formats, {
+            quality: 'highest',
+            filter: 'videoandaudio'
+        });
 
     if (!format) {
-        try {
-            format = ytdl.chooseFormat(
-                info.formats,
-                {
-                    quality: 'highestvideo',
-                    filter: 'videoandaudio'
-                }
-            );
-        } catch {}
-    }
-
-    if (!format?.url) {
-        throw new Error('No direct YouTube format found');
+        throw new Error('No YouTube video format found');
     }
 
     return {
         video_url: format.url,
-        title: info.videoDetails?.title || 'Drama Video'
+        title: info.videoDetails?.title || 'YouTube Video'
     };
 }
 
-/* =========================
-   DOWNLOAD VIDEO
-========================= */
-
+// Download video
 async function downloadVideo(videoUrl) {
-    if (!videoUrl) {
-        throw new Error('Invalid video URL');
-    }
-
     const response = await axios.get(videoUrl, {
         responseType: 'arraybuffer',
         timeout: 120000,
         maxContentLength: MAX_FILE_SIZE,
-        maxBodyLength: MAX_FILE_SIZE,
-        maxRedirects: 5,
-        headers: {
-            'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-            'Accept': '*/*'
-        },
-        validateStatus: status =>
-            status >= 200 && status < 400
+        maxBodyLength: MAX_FILE_SIZE
     });
 
     const buffer = Buffer.from(response.data);
 
     if (!buffer.length) {
-        throw new Error('Empty video response');
+        throw new Error('Empty video file');
     }
 
     if (buffer.length > MAX_FILE_SIZE) {
@@ -448,10 +209,7 @@ async function downloadVideo(videoUrl) {
     return buffer;
 }
 
-/* =========================
-   API + DOWNLOAD FALLBACK
-========================= */
-
+// Multiple API fallback
 async function fetchDownloadData(url) {
 
     const apis = [
@@ -469,7 +227,7 @@ async function fetchDownloadData(url) {
         },
         {
             name: 'Keith / David',
-            fn: () => keithDavidAPI(url)
+            fn: () => keithAPI(url)
         },
         {
             name: 'Direct YouTube',
@@ -477,60 +235,19 @@ async function fetchDownloadData(url) {
         }
     ];
 
-    let lastError = null;
+    let lastError;
 
     for (const api of apis) {
 
         try {
 
-            console.log(
-                `[DRAMA] 🔄 Trying ${api.name}...`
-            );
+            console.log(`[VIDEO] Trying ${api.name}...`);
 
             const data = await api.fn();
 
-            if (!data?.video_url) {
-                throw new Error(
-                    `${api.name}: no video URL`
-                );
-            }
-
-            console.log(
-                `[DRAMA] 🔗 ${api.name} returned video URL`
-            );
-
-            try {
-
-                const buffer = await downloadVideo(
-                    data.video_url
-                );
-
-                if (!buffer?.length) {
-                    throw new Error(
-                        `${api.name}: empty video`
-                    );
-                }
-
-                console.log(
-                    `[DRAMA] ✅ ${api.name} download successful`
-                );
-
-                return {
-                    buffer,
-                    title: data.title || 'Drama Video'
-                };
-
-            } catch (downloadError) {
-
-                console.log(
-                    `[DRAMA] ❌ ${api.name} video download failed:`,
-                    downloadError?.message || downloadError
-                );
-
-                lastError = downloadError;
-
-                // Try next API
-                continue;
+            if (data?.video_url) {
+                console.log(`[VIDEO] ✅ ${api.name} resolved video`);
+                return data;
             }
 
         } catch (error) {
@@ -538,50 +255,33 @@ async function fetchDownloadData(url) {
             lastError = error;
 
             console.log(
-                `[DRAMA] ❌ ${api.name} failed:`,
+                `[VIDEO] ❌ ${api.name} failed:`,
                 error?.message || error
             );
-
-            continue;
         }
     }
 
-    throw lastError ||
-        new Error('All drama download sources failed');
+    throw lastError || new Error('All download APIs failed');
 }
 
-/* =========================
-   MAIN COMMAND
-========================= */
-
+// MAIN COMMAND
 cmd(
     {
         pattern: "drama",
-        alias: ["dramaep", "serial"],
-        react: "🎬",
-        desc: "Drama Video Downloader",
+        alias: ["ytmp4", "vdl"],
+        react: "🔁",
+        desc: "YouTube Video Downloader",
         category: "download",
         filename: __filename
     },
 
-    async (
-        conn,
-        mek,
-        m,
-        {
-            from,
-            q,
-            reply,
-            prefix,
-            command
-        }
-    ) => {
+    async (conn, mek, m, { from, q, reply, prefix, command }) => {
 
         try {
 
             if (!q) {
                 return reply(
-                    `🎬 *Usage:* ${prefix + command} drama name or episode\n\nExample:\n${prefix + command} Mere Humsafar Episode 1`
+                    `🎥 *Usage:* ${prefix + command} video name or link`
                 );
             }
 
@@ -592,115 +292,56 @@ cmd(
                 }
             });
 
-            /* =========================
-               FIND DRAMA
-            ========================= */
-
-            const normalizedUrl =
-                normalizeYouTubeUrl(q);
-
+            // SEARCH VIDEO
+            const normalizedUrl = normalizeYouTubeUrl(q);
             let ytdata;
 
             if (normalizedUrl) {
 
-                const videoId =
-                    normalizedUrl.split("v=")[1];
+                const videoId = normalizedUrl.split("v=")[1];
 
                 try {
-
-                    ytdata =
-                        await yts({ videoId });
-
+                    ytdata = await yts({ videoId });
                 } catch {
-
-                    return reply(
-                        "❌ This YouTube video could not be found."
-                    );
-                }
-
-                if (
-                    !ytdata ||
-                    !isDramaVideo(ytdata)
-                ) {
-                    return reply(
-                        "❌ Only drama/serial/episode videos are allowed in this command."
-                    );
+                    ytdata = {
+                        url: normalizedUrl,
+                        title: "YouTube Video",
+                        timestamp: "Unknown"
+                    };
                 }
 
             } else {
 
-                try {
+                const searchResults = await yts(q);
 
-                    ytdata =
-                        await searchDrama(q);
-
-                } catch (error) {
-
-                    console.log(
-                        "[DRAMA SEARCH ERROR]:",
-                        error?.message || error
-                    );
-
-                    return reply(
-                        "❌ Drama search failed. Please try again."
-                    );
+                if (!searchResults.videos?.length) {
+                    return reply("❌ No video found!");
                 }
 
-                if (!ytdata) {
-
-                    return reply(
-                        "❌ No drama found!\n\nPlease enter a drama name or episode, not a song/music video."
-                    );
-                }
+                ytdata = searchResults.videos[0];
             }
 
-            /* =========================
-               DRAMA CAPTION
-            ========================= */
+            if (!ytdata) {
+                return reply("❌ No video found!");
+            }
 
-            const caption =
-`🎬 *${ytdata.title}*
+            // CLEAN CAPTION
+            const caption = `🎬 *${ytdata.title}*
 
 📺 *${ytdata.author?.name || 'Unknown'}*
 ⏱️ ${ytdata.timestamp || 'Unknown'}
 
-📥 *Downloading Drama...*
+📥 *Downloading Video...*`;
 
-> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`;
-
-            /* =========================
-               SEND INFO
-            ========================= */
-
-            if (ytdata.thumbnail || ytdata.image) {
-
-                await conn.sendMessage(
-                    from,
-                    {
-                        image: {
-                            url:
-                                ytdata.thumbnail ||
-                                ytdata.image
-                        },
-                        caption
-                    },
-                    {
-                        quoted: mek
-                    }
-                );
-
-            } else {
-
-                await conn.sendMessage(
-                    from,
-                    {
-                        text: caption
-                    },
-                    {
-                        quoted: mek
-                    }
-                );
-            }
+            // SEND VIDEO INFO WITH ONLY CLEAN CAPTION
+            await conn.sendMessage(from, {
+                image: {
+                    url: ytdata.thumbnail || ytdata.image
+                },
+                caption
+            }, {
+                quoted: mek
+            });
 
             await conn.sendMessage(from, {
                 react: {
@@ -709,75 +350,66 @@ cmd(
                 }
             });
 
-            /* =========================
-               DOWNLOAD WITH FALLBACK
-            ========================= */
-
+            // GET DOWNLOAD LINK
             let dlData;
 
             try {
 
-                dlData =
-                    await fetchDownloadData(
-                        normalizedUrl ||
-                        ytdata.url
-                    );
+                dlData = await fetchDownloadData(
+                    normalizedUrl || ytdata.url
+                );
 
             } catch (error) {
 
                 console.log(
-                    "[DRAMA] ALL SOURCES FAILED:",
+                    "[VIDEO] ALL APIs FAILED:",
                     error?.message || error
                 );
 
-                if (
-                    /large|size/i.test(
-                        error?.message || ""
-                    )
-                ) {
+                return reply(
+                    "❌ All video download sources are currently unavailable. Please try again."
+                );
+            }
+
+            if (!dlData?.video_url) {
+                return reply("❌ Video link not found or expired!");
+            }
+
+            // DOWNLOAD VIDEO
+            let videoBuffer;
+
+            try {
+
+                videoBuffer = await downloadVideo(
+                    dlData.video_url
+                );
+
+            } catch (err) {
+
+                console.log(
+                    "VIDEO DOWNLOAD ERROR:",
+                    err?.message || err
+                );
+
+                if (/large|size/i.test(err?.message || "")) {
                     return reply(
-                        "📦 Drama video is too large to send on WhatsApp."
+                        "📦 Video is too large to send on WhatsApp."
                     );
                 }
 
                 return reply(
-                    "❌ Drama download sources are currently unavailable. Please try again later."
+                    "❌ Video download failed. The download link may have expired."
                 );
             }
 
-            if (!dlData?.buffer) {
-
-                return reply(
-                    "❌ Drama video could not be downloaded."
-                );
-            }
-
-            /* =========================
-               SEND AS DOCUMENT
-            ========================= */
-
-            const safeTitle =
-                (dlData.title ||
-                    ytdata.title ||
-                    "Drama Video")
-                    .replace(/[\\/:*?"<>|]/g, "")
-                    .trim();
-
-            await conn.sendMessage(
-                from,
-                {
-                    document: dlData.buffer,
-                    mimetype: "video/mp4",
-                    fileName: `${safeTitle}.mp4`,
-                    caption:
-`🎬 *${dlData.title || ytdata.title}*
-
-> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳`
-                },
-                {
-                    quoted: mek
-                }
-            );
+            // SEND VIDEO
+            await conn.sendMessage(from, {
+                video: videoBuffer,
+                mimetype: "video/mp4",
+                caption: `🎬 *${dlData.title || ytdata.title}*`
+            }, {
+                quoted: mek
+            });
 
             await conn.sendMessage(from, {
                 react: {
@@ -800,9 +432,7 @@ cmd(
                 }
             });
 
-            return reply(
-                "⚠️ Something went wrong while processing the drama."
-            );
+            reply("⚠️ Something went wrong!");
         }
     }
 );
