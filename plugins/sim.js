@@ -1,7 +1,6 @@
 // sim.js - ESM Version
-
 import { fileURLToPath } from 'url';
-import { cmd } from '../inconnuboy.js';
+import { cmd } from '../command.js';
 import axios from 'axios';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -13,13 +12,15 @@ cmd({
     category: "tools",
     react: "💎",
     filename: __filename
-}, async (conn, m, store, { from, q, reply }) => {
+},
+async (conn, mek, m, { from, sender, reply }) => {
     try {
 
-        if (!q) {
+        if (!m?.text) {
             return reply("Provide a number! Example: .sim 0303xxxxxxx");
         }
 
+        let q = m.text.split(" ").slice(1).join(" ");
         let raw = q.replace(/\D/g, '');
 
         if (raw.startsWith('92')) {
@@ -35,7 +36,7 @@ cmd({
         await conn.sendMessage(from, {
             react: {
                 text: "🔍",
-                key: m.key
+                key: mek.key
             }
         });
 
@@ -66,17 +67,28 @@ cmd({
 
 ✨ ᴘᴏᴡᴇʀᴇᴅ ʙʏ ɴᴀᴡᴀᴢ ᴍᴅ`;
 
-        await reply(text);
+        await conn.sendMessage(from, {
+            text: text,
+            mentions: [sender]
+        }, { quoted: mek });
 
         await conn.sendMessage(from, {
             react: {
                 text: "✅",
-                key: m.key
+                key: mek.key
             }
         });
 
     } catch (e) {
         console.error("SIM CMD ERROR:", e);
-        reply("Internal Error!");
+
+        await conn.sendMessage(from, {
+            react: {
+                text: "❌",
+                key: mek.key
+            }
+        });
+
+        reply(`❌ Error: ${e.message}`);
     }
 });
