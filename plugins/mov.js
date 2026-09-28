@@ -44,68 +44,13 @@ async (conn, mek, m, { from, q, reply }) => {
         const apiUrl =
             `${BASE_URL}?url=${encodeURIComponent(q)}&key=${API_KEY}`;
 
-        let apiRes;
+        const apiRes = await axios.get(apiUrl, {
+            timeout: 60000
+        });
 
-        try {
-            apiRes = await axios.get(apiUrl, {
-                timeout: 60000,
-                validateStatus: () => true
-            });
-        } catch (apiError) {
-            console.error("API REQUEST ERROR:", apiError);
-
-            await conn.sendMessage(from, {
-                text:
-                    `❌ API Request Failed\n\n` +
-                    `Error: ${apiError.message}`
-            }, { quoted: mek });
-
-            await conn.sendMessage(from, {
-                react: {
-                    text: "❌",
-                    key: mek.key
-                }
-            });
-
-            return;
-        }
-
-        // Debug API response
-        console.log("YTV3 HTTP STATUS:", apiRes.status);
-        console.log("YTV3 RESPONSE:", apiRes.data);
-
-        // HTTP error
-        if (apiRes.status < 200 || apiRes.status >= 300) {
-            const responseText =
-                typeof apiRes.data === "string"
-                    ? apiRes.data
-                    : JSON.stringify(apiRes.data, null, 2);
-
-            await conn.sendMessage(from, {
-                text:
-                    `❌ API HTTP Error\n\n` +
-                    `📡 Status: ${apiRes.status}\n\n` +
-                    `📄 Response:\n${responseText.slice(0, 3000)}`
-            }, { quoted: mek });
-
-            await conn.sendMessage(from, {
-                react: {
-                    text: "❌",
-                    key: mek.key
-                }
-            });
-
-            return;
-        }
-
-        // API status false
         if (!apiRes.data?.status) {
             await conn.sendMessage(from, {
-                text:
-                    `❌ API returned an error.\n\n` +
-                    `📡 HTTP Status: ${apiRes.status}\n\n` +
-                    `📄 Response:\n` +
-                    `${JSON.stringify(apiRes.data, null, 2).slice(0, 3000)}`
+                text: "❌ API failed to generate the download link."
             }, { quoted: mek });
 
             await conn.sendMessage(from, {
@@ -118,15 +63,12 @@ async (conn, mek, m, { from, q, reply }) => {
             return;
         }
 
-        // Get download URL
+        // Get direct GoogleVideo URL
         const finalUrl = apiRes.data?.download?.url;
 
         if (!finalUrl) {
             await conn.sendMessage(from, {
-                text:
-                    `❌ Download URL missing.\n\n` +
-                    `📄 API Response:\n` +
-                    `${JSON.stringify(apiRes.data, null, 2).slice(0, 3000)}`
+                text: "❌ No download URL received from API."
             }, { quoted: mek });
 
             await conn.sendMessage(from, {
@@ -139,43 +81,71 @@ async (conn, mek, m, { from, q, reply }) => {
             return;
         }
 
-        console.log("YTV3 DOWNLOAD URL:", finalUrl);
+        // Download video to buffer first
+        let videoBuffer;
+
+        try {
+            const videoRes = await axios.get(finalUrl, {
+                responseType: 'arraybuffer',
+                timeout: 180000,
+                maxContentLength: Infinity,
+                maxBodyLength: Infinity,
+                headers: {
+                    'User-Agent':
+                        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
+                    'Accept': '*/*',
+                    'Referer': 'https://www.youtube.com/'
+                }
+            });
+
+            videoBuffer = Buffer.from(videoRes.data);
+
+        } catch (downloadError) {
+            console.error("VIDEO DOWNLOAD ERROR:", downloadError);
+
+            await conn.sendMessage(from, {
+                text:
+                    `❌ Video download failed.\n\n` +
+                    `Error: ${downloadError.message}`
+            }, { quoted: mek });
+
+            await conn.sendMessage(from, {
+                react: {
+                    text: "❌",
+                    key: mek.key
+                }
+            });
+
+            return;
+        }
+
+        if (!videoBuffer || !videoBuffer.length) {
+            await conn.sendMessage(from, {
+                text: "❌ Downloaded video buffer is empty."
+            }, { quoted: mek });
+
+            await conn.sendMessage(from, {
+                react: {
+                    text: "❌",
+                    key: mek.key
+                }
+            });
+
+            return;
+        }
 
         const fileName = "NAWAZ-MD-Video.mp4";
 
-        // Send document
-        try {
-            await conn.sendMessage(from, {
-                document: {
-                    url: finalUrl
-                },
-                mimetype: 'video/mp4',
-                fileName: fileName,
-                caption:
-                    `🎬 Video Downloaded\n\n` +
-                    `🔗 Source: YouTube\n\n` +
-                    `✨ Powered by Nawaz MD`
-            }, { quoted: mek });
-
-        } catch (sendError) {
-            console.error("DOCUMENT SEND ERROR:", sendError);
-
-            await conn.sendMessage(from, {
-                text:
-                    `❌ File Send Failed\n\n` +
-                    `Error: ${sendError.message}\n\n` +
-                    `🔗 API URL was received successfully.`
-            }, { quoted: mek });
-
-            await conn.sendMessage(from, {
-                react: {
-                    text: "❌",
-                    key: mek.key
-                }
-            });
-
-            return;
-        }
+        // Send downloaded buffer as document
+        await conn.sendMessage(from, {
+            document: videoBuffer,
+            mimetype: 'video/mp4',
+            fileName: fileName,
+            caption:
+                `🎬 Video Downloaded\n\n` +
+                `🔗 Source: YouTube\n\n` +
+                `✨ Powered by Nawaz MD`
+        }, { quoted: mek });
 
         await conn.sendMessage(from, {
             react: {
@@ -195,7 +165,7 @@ async (conn, mek, m, { from, q, reply }) => {
         });
 
         return reply(
-            `❌ Unexpected Error\n\n${e.message}`
+            `❌ Download failed.\n\nError: ${e.message}`
         );
     }
 });
