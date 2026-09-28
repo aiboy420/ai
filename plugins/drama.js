@@ -66,7 +66,25 @@ function extractDownloadUrl(data) {
     );
 }
 
-// 1. Dark Shan API
+// 1. YTV3 API
+async function ytv3API(url) {
+    const apiUrl =
+        `https://xjawadtech.vercel.app/ytv3?url=${encodeURIComponent(url)}&key=erfanxjawadi`;
+
+    const response = await axios.get(apiUrl, AXIOS_CONFIG);
+    const data = response.data;
+
+    if (!data?.status || !data?.download?.url) {
+        throw new Error('YTV3: video URL not found');
+    }
+
+    return {
+        video_url: data.download.url,
+        title: data.download.title || 'YouTube Video'
+    };
+}
+
+// 2. Dark Shan API
 async function darkShanAPI(url) {
     const apiUrl =
         `https://api-dark-shan-yt.koyeb.app/download/ytmp4?url=${encodeURIComponent(url)}&apikey=72209ca3742e5a36`;
@@ -88,7 +106,7 @@ async function darkShanAPI(url) {
     };
 }
 
-// 2. CypherX API
+// 3. CypherX API
 async function cypherXAPI(url) {
     const apiUrl =
         `https://media.cypherxbot.space/download/youtube/video?url=${encodeURIComponent(url)}`;
@@ -106,7 +124,7 @@ async function cypherXAPI(url) {
     };
 }
 
-// 3. PrinceTech API
+// 4. PrinceTech API
 async function princeTechAPI(url) {
     const apiUrl =
         `https://api.princetechn.com/api/download/ytvideo?url=${encodeURIComponent(url)}&apikey=prince`;
@@ -124,7 +142,7 @@ async function princeTechAPI(url) {
     };
 }
 
-// 4. Keith / David APIs
+// 5. Keith / David APIs
 async function keithAPI(url) {
     const apis = [
         `https://apiskeith.top/download/video?url=${encodeURIComponent(url)}`,
@@ -159,7 +177,7 @@ async function keithAPI(url) {
     throw lastError || new Error('Keith/David APIs failed');
 }
 
-// 5. Direct YouTube fallback
+// 6. Direct YouTube fallback
 async function directYouTubeAPI(url) {
     if (!ytdl) {
         throw new Error('ytdl-core not installed');
@@ -213,6 +231,10 @@ async function downloadVideo(videoUrl) {
 async function fetchDownloadData(url) {
 
     const apis = [
+        {
+            name: 'YTV3',
+            fn: () => ytv3API(url)
+        },
         {
             name: 'Dark Shan',
             fn: () => darkShanAPI(url)
@@ -325,7 +347,6 @@ cmd(
                 return reply("❌ No video found!");
             }
 
-            // CLEAN CAPTION
             const caption = `🎬 *${ytdata.title}*
 
 📺 *${ytdata.author?.name || 'Unknown'}*
@@ -333,7 +354,6 @@ cmd(
 
 📥 *Downloading Video...*`;
 
-            // SEND VIDEO INFO WITH ONLY CLEAN CAPTION
             await conn.sendMessage(from, {
                 image: {
                     url: ytdata.thumbnail || ytdata.image
