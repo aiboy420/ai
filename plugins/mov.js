@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 
 cmd({
     pattern: "movie",
-    desc: "Download YouTube video as document",
+    desc: "Download YouTube video as a document",
     category: "download",
     react: "🎬",
     filename: __filename
@@ -23,7 +23,7 @@ async (conn, mek, m, { from, q, reply }) => {
         }
 
         const API_KEY = 'erfanxjawadi';
-        const BASE_URL = 'https://xjawadtech.vercel.app/ytv3';
+        const BASE_URL = 'https://xjawadtech.vercel.app/ytdl';
 
         await conn.sendMessage(from, {
             react: {
@@ -40,7 +40,7 @@ async (conn, mek, m, { from, q, reply }) => {
                 `⏳ Please wait...`
         }, { quoted: mek });
 
-        // API URL
+        // YTDL API
         const apiUrl =
             `${BASE_URL}?url=${encodeURIComponent(q)}&key=${API_KEY}`;
 
@@ -63,8 +63,8 @@ async (conn, mek, m, { from, q, reply }) => {
             return;
         }
 
-        // Get direct GoogleVideo URL
-        const finalUrl = apiRes.data?.download?.url;
+        const finalUrl = apiRes.data?.download?.urlx;
+        const title = apiRes.data?.download?.title || "NAWAZ MD Video";
 
         if (!finalUrl) {
             await conn.sendMessage(from, {
@@ -81,7 +81,7 @@ async (conn, mek, m, { from, q, reply }) => {
             return;
         }
 
-        // Download video to buffer first
+        // Download video to buffer
         let videoBuffer;
 
         try {
@@ -92,9 +92,7 @@ async (conn, mek, m, { from, q, reply }) => {
                 maxBodyLength: Infinity,
                 headers: {
                     'User-Agent':
-                        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
-                    'Accept': '*/*',
-                    'Referer': 'https://www.youtube.com/'
+                        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36'
                 }
             });
 
@@ -119,31 +117,24 @@ async (conn, mek, m, { from, q, reply }) => {
             return;
         }
 
-        if (!videoBuffer || !videoBuffer.length) {
+        if (!videoBuffer?.length) {
             await conn.sendMessage(from, {
-                text: "❌ Downloaded video buffer is empty."
+                text: "❌ Downloaded video is empty."
             }, { quoted: mek });
-
-            await conn.sendMessage(from, {
-                react: {
-                    text: "❌",
-                    key: mek.key
-                }
-            });
 
             return;
         }
 
-        const fileName = "NAWAZ-MD-Video.mp4";
+        const fileName =
+            `${title.replace(/[\\/:*?"<>|]/g, '')}.mp4`;
 
-        // Send downloaded buffer as document
+        // Send document
         await conn.sendMessage(from, {
             document: videoBuffer,
             mimetype: 'video/mp4',
-            fileName: fileName,
+            fileName,
             caption:
-                `🎬 Video Downloaded\n\n` +
-                `🔗 Source: YouTube\n\n` +
+                `🎬 ${title}\n\n` +
                 `✨ Powered by Nawaz MD`
         }, { quoted: mek });
 
@@ -155,7 +146,7 @@ async (conn, mek, m, { from, q, reply }) => {
         });
 
     } catch (e) {
-        console.error("YTV3 MOVIE ERROR:", e);
+        console.error("YTDL MOVIE ERROR:", e);
 
         await conn.sendMessage(from, {
             react: {
