@@ -16,99 +16,48 @@ cmd({
 async (conn, mek, m, { from, q, reply }) => {
     try {
         if (!q) {
-            return reply(
-                `╭─❍══ ⃟ ⃟ ⃟   𝙽𝙰𝚆𝙰𝚉 𝙼𝙳   ⃟ ⃟ ⃟══⊷❍\n` +
-                `┇◆┋ 🎬 *CINESUBZ MOVIE*\n` +
-                `┇◆┋\n` +
-                `┇◆┋ ❌ Please enter a movie name!\n` +
-                `┇◆┋ 📌 Example: .movie3 Superman\n` +
-                `╰─❍`
-            );
+            return reply("❌ Please enter a YouTube URL!\n\nExample: .movie https://youtu.be/xxxxx");
         }
 
-        const API_KEY = '12f85decd3d58102';
-        const BASE_URL = 'https://api-dark-shan-yt.koyeb.app/movie';
+        const API_KEY = 'erfanxjawadi';
+        const BASE_URL = 'https://xjawadtech.vercel.app/ytv3';
 
         await conn.sendMessage(from, {
-            react: { text: "⏳", key: mek.key }
+            react: {
+                text: "⏳",
+                key: mek.key
+            }
         });
 
-        // First message: downloading started
+        // First message
         await conn.sendMessage(from, {
-            text:
-                `╭─❍══ ⃟ ⃟ ⃟   𝙽𝙰𝚆𝙰𝚉 𝙼𝙳   ⃟ ⃟ ⃟══⊷❍\n` +
-                `┇◆┋ 🎬 *MOVIE DOWNLOADING STARTED*\n` +
-                `┇◆┋\n` +
-                `┇◆┋ 🎥 *Movie:* ${q}\n` +
-                `┇◆┋ ⏳ Please wait, your movie is being prepared...\n` +
-                `╰─❍`
+            text: `🎬 Downloading started...\n\n🔗 URL: ${q}\n\n⏳ Please wait...`
         }, { quoted: mek });
 
-        // Search movie
-        const searchUrl =
-            `${BASE_URL}/cinesubz-search?q=${encodeURIComponent(q)}&apikey=${API_KEY}`;
+        // YTV3 API
+        const apiUrl =
+            `${BASE_URL}?url=${encodeURIComponent(q)}&key=${API_KEY}`;
 
-        const searchRes = await axios.get(searchUrl, { timeout: 60000 });
+        const apiRes = await axios.get(apiUrl, {
+            timeout: 60000
+        });
 
-        if (!searchRes.data?.status || !searchRes.data.data?.length) {
-            await conn.sendMessage(from, {
-                text: "❌ No movie found. Please try another movie name."
-            }, { quoted: mek });
-
-            await conn.sendMessage(from, {
-                react: { text: "❌", key: mek.key }
-            });
-            return;
-        }
-
-        // Automatically select first result
-        const movie = searchRes.data.data[0];
-        const movieTitle = movie.title.split('|')[0].trim();
-
-        // Get movie info and available downloads
-        const infoUrl =
-            `${BASE_URL}/cinesubz-info?url=${encodeURIComponent(movie.link)}&apikey=${API_KEY}`;
-
-        const infoRes = await axios.get(infoUrl, { timeout: 60000 });
-
-        const downloads = infoRes.data?.data?.downloads;
-
-        if (!infoRes.data?.status || !downloads?.length) {
-            await conn.sendMessage(from, {
-                text: "❌ No download links found for this movie."
-            }, { quoted: mek });
-
-            await conn.sendMessage(from, {
-                react: { text: "❌", key: mek.key }
-            });
-            return;
-        }
-
-        // Automatically select first available quality
-        const selectedQuality = downloads[0];
-
-        const downloadUrl =
-            `${BASE_URL}/cinesubz-download?url=${encodeURIComponent(selectedQuality.link)}&apikey=${API_KEY}`;
-
-        const downloadRes = await axios.get(downloadUrl, { timeout: 60000 });
-
-        const downloadInfo = downloadRes.data?.data?.download;
-
-        if (!downloadRes.data?.status || !downloadInfo?.length) {
+        if (!apiRes.data?.status) {
             await conn.sendMessage(from, {
                 text: "❌ Failed to retrieve the download link."
             }, { quoted: mek });
 
             await conn.sendMessage(from, {
-                react: { text: "❌", key: mek.key }
+                react: {
+                    text: "❌",
+                    key: mek.key
+                }
             });
+
             return;
         }
 
-        const directItem =
-            downloadInfo.find(d => d.name === 'unknown') || downloadInfo[0];
-
-        const finalUrl = directItem?.url;
+        const finalUrl = apiRes.data?.download?.url;
 
         if (!finalUrl) {
             await conn.sendMessage(from, {
@@ -116,41 +65,46 @@ async (conn, mek, m, { from, q, reply }) => {
             }, { quoted: mek });
 
             await conn.sendMessage(from, {
-                react: { text: "❌", key: mek.key }
+                react: {
+                    text: "❌",
+                    key: mek.key
+                }
             });
+
             return;
         }
 
-        const fileName =
-            `${movieTitle} [${selectedQuality.quality || 'Movie'}] CineSubz.mp4`;
+        const fileName = "NAWAZ-MD-Video.mp4";
 
-        // Second message: movie document
+        // Second message - Document
         await conn.sendMessage(from, {
-            document: { url: finalUrl },
+            document: {
+                url: finalUrl
+            },
             mimetype: 'video/mp4',
-            fileName,
-            caption:
-                `╭─❍══ ⃟ ⃟ ⃟   𝙽𝙰𝚆𝙰𝚉 𝙼𝙳   ⃟ ⃟ ⃟══⊷❍\n` +
-                `┇◆┋ 🎬 *${movieTitle}*\n` +
-                `┇◆┋ 💿 *Quality:* ${selectedQuality.quality || 'N/A'}\n` +
-                `┇◆┋ 📦 *Size:* ${selectedQuality.size || 'N/A'}\n` +
-                `┇◆┋ 👑 *𝙿𝚘𝚠𝚎𝚛 𝙱𝚢 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳*\n` +
-                `╰─❍`
+            fileName: fileName,
+            caption: `🎬 Video Downloaded\n\n🔗 Source: YouTube\n\n✨ Powered by Nawaz MD`
         }, { quoted: mek });
 
         await conn.sendMessage(from, {
-            react: { text: "✅", key: mek.key }
+            react: {
+                text: "✅",
+                key: mek.key
+            }
         });
 
     } catch (e) {
-        console.error("CineSubz movie3 error:", e);
+        console.error("YTV3 movie error:", e);
 
         await conn.sendMessage(from, {
-            react: { text: "❌", key: mek.key }
+            react: {
+                text: "❌",
+                key: mek.key
+            }
         });
 
         return reply(
-            "❌ *Download failed. The API may be unavailable or the movie link may be invalid.*"
+            "❌ Download failed. The API may be unavailable or the YouTube link may be invalid."
         );
     }
 });
