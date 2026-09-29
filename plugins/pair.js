@@ -1,4 +1,4 @@
- // pair.js - ESM Version
+// pair.js - ESM Version
 import { fileURLToPath } from "url";
 import { cmd } from "../command.js";
 import axios from "axios";
@@ -18,17 +18,28 @@ cmd({
 }, async (conn, mek, m, { senderNumber, reply, react, q }) => {
 
     try {
+        // Processing reaction
         await react("⏳");
 
-        const phoneNumber = (q || senderNumber || "")
+        // If number is provided, use it.
+        // If no number is provided, use command sender's number.
+        const phoneNumber = (q?.trim() || senderNumber || "")
             .toString()
             .replace(/[^0-9]/g, "");
 
+        // Validate number
         if (!phoneNumber || phoneNumber.length < 10 || phoneNumber.length > 15) {
             await react("❌");
-            return reply("❌ Invalid number!\nExample: .pair 923001234567");
+            return reply(
+                "❌ Invalid number!\n\n" +
+                "Use:\n" +
+                ".pair 923001234567\n\n" +
+                "Or simply:\n" +
+                ".pair"
+            );
         }
 
+        // Get available servers
         const serversResponse = await axios.get(`${API_BASE_URL}/servers`, {
             timeout: 10000
         });
@@ -40,15 +51,20 @@ cmd({
             return reply("❌ No servers available right now.");
         }
 
-        const randomServer = servers[Math.floor(Math.random() * servers.length)];
+        // Select random server
+        const randomServer =
+            servers[Math.floor(Math.random() * servers.length)];
 
         if (!randomServer?.url) {
             await react("❌");
             return reply("❌ Server error.");
         }
 
+        // Generate pairing code
         const response = await axios.get(`${randomServer.url}/code`, {
-            params: { number: phoneNumber },
+            params: {
+                number: phoneNumber
+            },
             timeout: 20000
         });
 
@@ -59,6 +75,7 @@ cmd({
             return reply("❌ Failed to generate pairing code.");
         }
 
+        // Success reaction
         await react("✅");
 
         // Server Name
@@ -71,7 +88,7 @@ cmd({
                 .replace(/\/$/, "");
 
         // =========================
-        // FIRST MESSAGE - NEW STYLE
+        // FIRST MESSAGE
         // =========================
         const caption = `
 🔐 *NAWAZ-MD PAIR CODE*
@@ -96,7 +113,7 @@ cmd({
         );
 
         // =========================
-        // SECOND MESSAGE (ONLY CODE)
+        // SECOND MESSAGE - CODE
         // =========================
         await conn.sendMessage(
             m.chat,
@@ -108,8 +125,11 @@ cmd({
 
     } catch (error) {
         console.error("Pair command error:", error);
+
         await react("❌");
-        return reply("❌ Server error! Please try again later.");
+
+        return reply(
+            "❌ Server error! Please try again later."
+        );
     }
 });
-            
