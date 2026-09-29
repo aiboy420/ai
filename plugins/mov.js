@@ -1,162 +1,949 @@
-// 𝙽𝙰𝚆𝙰𝚉 𝙼𝙳
+// movie.js - ESM Version
+// NAWAZ MD - Movie Search / Download
 
 import { fileURLToPath } from 'url';
-import axios from 'axios';
 import { cmd } from '../command.js';
 
 const __filename = fileURLToPath(import.meta.url);
 
-cmd({
-    pattern: "movie",
-    desc: "Download YouTube video as a document",
-    category: "download",
-    react: "🎬",
-    filename: __filename
-},
-async (conn, mek, m, { from, q, reply }) => {
-    try {
-        if (!q) {
-            return reply(
-                "❌ Please enter a YouTube URL!\n\n" +
-                "Example: .movie https://youtu.be/xxxxx"
-            );
-        }
+let puppeteer;
 
-        const API_KEY = 'erfanxjawadi';
-        const BASE_URL = 'https://xjawadtech.vercel.app/ytdl';
+try {
+    const module = await import('puppeteer');
+    puppeteer = module.default || module;
+} catch (e) {
+    console.log("⚠️ Puppeteer not available, movie plugin will use fallback if required.");
+}
 
-        await conn.sendMessage(from, {
-            react: {
-                text: "⏳",
-                key: mek.key
-            }
-        });
+const pendingSearch = {};
+const pendingQuality = {};
 
-        // First message
-        await conn.sendMessage(from, {
-            text:
-                `🎬 Downloading started...\n\n` +
-                `🔗 URL: ${q}\n\n` +
-                `⏳ Please wait...`
-        }, { quoted: mek });
 
-        // YTDL API
-        const apiUrl =
-            `${BASE_URL}?url=${encodeURIComponent(q)}&key=${API_KEY}`;
+// ==========================================
+// NORMALIZE QUALITY
+// ==========================================
 
-        const apiRes = await axios.get(apiUrl, {
-            timeout: 60000
-        });
+function normalizeQuality(text) {
 
-        if (!apiRes.data?.status) {
-            await conn.sendMessage(from, {
-                text: "❌ API failed to generate the download link."
-            }, { quoted: mek });
+    if (!text) return null;
 
-            await conn.sendMessage(from, {
-                react: {
-                    text: "❌",
-                    key: mek.key
-                }
-            });
+    text = text.toUpperCase();
 
-            return;
-        }
+    if (/1080|FHD/.test(text)) return "1080p";
+    if (/720|HD/.test(text)) return "720p";
+    if (/480|SD/.test(text)) return "480p";
 
-        const finalUrl = apiRes.data?.download?.urlx;
-        const title = apiRes.data?.download?.title || "NAWAZ MD Video";
+    return text;
+}
 
-        if (!finalUrl) {
-            await conn.sendMessage(from, {
-                text: "❌ No download URL received from API."
-            }, { quoted: mek });
 
-            await conn.sendMessage(from, {
-                react: {
-                    text: "❌",
-                    key: mek.key
-                }
-            });
+// ==========================================
+// PIXELDRAIN DIRECT URL
+// ==========================================
 
-            return;
-        }
+function getDirectPixeldrainUrl(url) {
 
-        // Download video to buffer
-        let videoBuffer;
+    const match =
+        url.match(/pixeldrain\.com\/u\/(\w+)/);
 
-        try {
-            const videoRes = await axios.get(finalUrl, {
-                responseType: 'arraybuffer',
-                timeout: 180000,
-                maxContentLength: Infinity,
-                maxBodyLength: Infinity,
-                headers: {
-                    'User-Agent':
-                        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36'
-                }
-            });
+    if (!match) return null;
 
-            videoBuffer = Buffer.from(videoRes.data);
+    return `https://pixeldrain.com/api/file/${match[1]}?download`;
+}
 
-        } catch (downloadError) {
-            console.error("VIDEO DOWNLOAD ERROR:", downloadError);
 
-            await conn.sendMessage(from, {
-                text:
-                    `❌ Video download failed.\n\n` +
-                    `Error: ${downloadError.message}`
-            }, { quoted: mek });
+// ==========================================
+// SEARCH MOVIES
+// ==========================================
 
-            await conn.sendMessage(from, {
-                react: {
-                    text: "❌",
-                    key: mek.key
-                }
-            });
+async function searchMovies(query) {
 
-            return;
-        }
-
-        if (!videoBuffer?.length) {
-            await conn.sendMessage(from, {
-                text: "❌ Downloaded video is empty."
-            }, { quoted: mek });
-
-            return;
-        }
-
-        const fileName =
-            `${title.replace(/[\\/:*?"<>|]/g, '')}.mp4`;
-
-        // Send document
-        await conn.sendMessage(from, {
-            document: videoBuffer,
-            mimetype: 'video/mp4',
-            fileName,
-            caption:
-                `🎬 ${title}\n\n` +
-                `✨ Powered by Nawaz MD`
-        }, { quoted: mek });
-
-        await conn.sendMessage(from, {
-            react: {
-                text: "✅",
-                key: mek.key
-            }
-        });
-
-    } catch (e) {
-        console.error("YTDL MOVIE ERROR:", e);
-
-        await conn.sendMessage(from, {
-            react: {
-                text: "❌",
-                key: mek.key
-            }
-        });
-
-        return reply(
-            `❌ Download failed.\n\nError: ${e.message}`
+    if (!puppeteer) {
+        throw new Error(
+            "Puppeteer is not initialized on this system."
         );
     }
+
+    const searchUrl =
+        `https://sinhalasub.lk/?s=${encodeURIComponent(query)}&post_type=movies`;
+
+    const browser =
+        await puppeteer.launch({
+            headless: true,
+            args: [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--single-process"
+            ]
+        });
+
+    const page =
+        await browser.newPage();
+
+    await page.goto(
+        searchUrl,
+        {
+            waitUntil: "networkidle2",
+            timeout: 30000
+        }
+    );
+
+    const results =
+        await page.$$eval(
+            ".display-item .item-box",
+            boxes =>
+                boxes
+                    .slice(0, 10)
+                    .map((box, index) => {
+
+                        const a =
+                            box.querySelector("a");
+
+                        const img =
+                            box.querySelector(".thumb");
+
+                        const lang =
+                            box.querySelector(
+                                ".item-desc-giha .language"
+                            )?.textContent || "";
+
+                        const quality =
+                            box.querySelector(
+                                ".item-desc-giha .quality"
+                            )?.textContent || "";
+
+                        const qty =
+                            box.querySelector(
+                                ".item-desc-giha .qty"
+                            )?.textContent || "";
+
+                        return {
+
+                            id: index + 1,
+
+                            title:
+                                a?.title?.trim() || "",
+
+                            movieUrl:
+                                a?.href || "",
+
+                            thumb:
+                                img?.src || "",
+
+                            language:
+                                lang.trim(),
+
+                            quality:
+                                quality.trim(),
+
+                            qty:
+                                qty.trim()
+
+                        };
+
+                    })
+                    .filter(
+                        m =>
+                            m.title &&
+                            m.movieUrl
+                    )
+        );
+
+    await browser.close();
+
+    return results;
+}
+
+
+// ==========================================
+// MOVIE METADATA
+// ==========================================
+
+async function getMovieMetadata(url) {
+
+    if (!puppeteer) {
+        throw new Error(
+            "Puppeteer is not initialized on this system."
+        );
+    }
+
+    const browser =
+        await puppeteer.launch({
+            headless: true,
+            args: [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--single-process"
+            ]
+        });
+
+    const page =
+        await browser.newPage();
+
+    await page.goto(
+        url,
+        {
+            waitUntil: "networkidle2",
+            timeout: 30000
+        }
+    );
+
+    const metadata =
+        await page.evaluate(() => {
+
+            const getText =
+                el =>
+                    el?.textContent.trim() || "";
+
+            const getList =
+                selector =>
+                    Array.from(
+                        document.querySelectorAll(selector)
+                    ).map(
+                        el =>
+                            el.textContent.trim()
+                    );
+
+            const title =
+                getText(
+                    document.querySelector(
+                        ".info-details .details-title h3"
+                    )
+                );
+
+            let language = "";
+            let directors = [];
+            let stars = [];
+
+            document
+                .querySelectorAll(".info-col p")
+                .forEach(p => {
+
+                    const strong =
+                        p.querySelector("strong");
+
+                    if (!strong) return;
+
+                    const txt =
+                        strong.textContent.trim();
+
+                    if (txt.includes("Language:")) {
+
+                        language =
+                            strong.nextSibling
+                                ?.textContent
+                                ?.trim() || "";
+
+                    }
+
+                    if (txt.includes("Director:")) {
+
+                        directors =
+                            Array.from(
+                                p.querySelectorAll("a")
+                            ).map(
+                                a =>
+                                    a.textContent.trim()
+                            );
+
+                    }
+
+                    if (txt.includes("Stars:")) {
+
+                        stars =
+                            Array.from(
+                                p.querySelectorAll("a")
+                            ).map(
+                                a =>
+                                    a.textContent.trim()
+                            );
+
+                    }
+
+                });
+
+            const duration =
+                getText(
+                    document.querySelector(
+                        ".info-details .data-views[itemprop='duration']"
+                    )
+                );
+
+            const imdb =
+                getText(
+                    document.querySelector(
+                        ".info-details .data-imdb"
+                    )
+                )
+                ?.replace("IMDb:", "")
+                .trim();
+
+            const genres =
+                getList(
+                    ".details-genre a"
+                );
+
+            const thumbnail =
+                document.querySelector(
+                    ".splash-bg img"
+                )?.src || "";
+
+            return {
+                title,
+                language,
+                duration,
+                imdb,
+                genres,
+                directors,
+                stars,
+                thumbnail
+            };
+
+        });
+
+    await browser.close();
+
+    return metadata;
+}
+
+
+// ==========================================
+// GET PIXELDRAIN LINKS
+// ==========================================
+
+async function getPixeldrainLinks(movieUrl) {
+
+    if (!puppeteer) {
+        throw new Error(
+            "Puppeteer is not initialized on this system."
+        );
+    }
+
+    const browser =
+        await puppeteer.launch({
+            headless: true,
+            args: [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--single-process"
+            ]
+        });
+
+    const page =
+        await browser.newPage();
+
+    await page.goto(
+        movieUrl,
+        {
+            waitUntil: "networkidle2",
+            timeout: 30000
+        }
+    );
+
+    const linksData =
+        await page.$$eval(
+            ".link-pixeldrain tbody tr",
+            rows =>
+                rows.map(row => {
+
+                    const a =
+                        row.querySelector(
+                            ".link-opt a"
+                        );
+
+                    const quality =
+                        row.querySelector(
+                            ".quality"
+                        )?.textContent.trim() || "";
+
+                    const size =
+                        row.querySelector(
+                            "td:nth-child(3) span"
+                        )?.textContent.trim() || "";
+
+                    return {
+                        pageLink:
+                            a?.href || "",
+
+                        quality,
+
+                        size
+                    };
+
+                })
+        );
+
+    const directLinks = [];
+
+    for (const l of linksData) {
+
+        try {
+
+            const subPage =
+                await browser.newPage();
+
+            await subPage.goto(
+                l.pageLink,
+                {
+                    waitUntil: "networkidle2",
+                    timeout: 30000
+                }
+            );
+
+            await new Promise(
+                r =>
+                    setTimeout(r, 12000)
+            );
+
+            const finalUrl =
+                await subPage
+                    .$eval(
+                        ".wait-done a[href^='https://pixeldrain.com/']",
+                        el =>
+                            el.href
+                    )
+                    .catch(
+                        () => null
+                    );
+
+            if (finalUrl) {
+
+                let sizeMB = 0;
+
+                const sizeText =
+                    l.size.toUpperCase();
+
+                if (
+                    sizeText.includes("GB")
+                ) {
+
+                    sizeMB =
+                        parseFloat(sizeText) *
+                        1024;
+
+                } else if (
+                    sizeText.includes("MB")
+                ) {
+
+                    sizeMB =
+                        parseFloat(sizeText);
+
+                }
+
+                if (sizeMB <= 2048) {
+
+                    directLinks.push({
+
+                        link:
+                            finalUrl,
+
+                        quality:
+                            normalizeQuality(
+                                l.quality
+                            ),
+
+                        size:
+                            l.size
+
+                    });
+
+                }
+
+            }
+
+            await subPage.close();
+
+        } catch (e) {
+
+            continue;
+
+        }
+
+    }
+
+    await browser.close();
+
+    return directLinks;
+}
+
+
+// ==========================================
+// MOVIE COMMAND
+// ==========================================
+
+cmd({
+
+    pattern: "movie",
+
+    alias: [
+        "sinhalasub",
+        "films",
+        "cinema"
+    ],
+
+    react: "🎬",
+
+    desc:
+        "Search and send movies from Sinhalasub.lk",
+
+    category: "download",
+
+    filename: __filename
+
+}, async (
+    chathubro,
+    mek,
+    m,
+    {
+        from,
+        q,
+        sender,
+        reply
+    }
+) => {
+
+    if (!q) {
+
+        return reply(
+            `╭━━━〔 *🎬 MOVIE SEARCH* 〕━━━╮
+┃
+┃ ⚠️ *Please provide a movie name!*
+┃ 📌 *Usage:* \`.movie [name]\`
+┃ 💡 *Example:* \`.movie avengers\`
+┃
+╰━━━━━━━━━━━━━━━━━━━━━━━╯`
+        );
+
+    }
+
+    reply(
+        "🔍 *Searching for movies on Sinhalasub.lk...*"
+    );
+
+    const searchResults =
+        await searchMovies(q);
+
+    if (!searchResults.length) {
+
+        return reply(
+            "❌ *No movies found matching your query!*"
+        );
+
+    }
+
+    pendingSearch[sender] = {
+
+        results:
+            searchResults,
+
+        timestamp:
+            Date.now()
+
+    };
+
+    let text =
+        `╭━━━〔 *🎬 SEARCH RESULTS* 〕━━━╮\n`;
+
+    searchResults.forEach(
+        (movie, i) => {
+
+            text +=
+                `┃ *${i + 1}.* *${movie.title}*\n`;
+
+            text +=
+                `┃    🗣️ Lang: ${movie.language || "N/A"}\n`;
+
+            text +=
+                `┃    📊 Quality: ${movie.quality || "HD"}\n`;
+
+            text +=
+                `┃    🎞️ Format: ${movie.qty || "WEB-DL"}\n`;
+
+            text +=
+                `┣━━━━━━━━━━━━━━━━━━━━━━━┫\n`;
+
+        }
+    );
+
+    text +=
+        `╰━━━━━━━━━━━━━━━━━━━━━━━╯\n\n`;
+
+    text +=
+        `> *💡 Reply with the movie number (1-${searchResults.length}) to select.*`;
+
+    reply(text);
+
 });
+
+
+// ==========================================
+// MOVIE SELECTION
+// ==========================================
+
+cmd({
+
+    filter: (
+        text,
+        { sender }
+    ) =>
+        pendingSearch[sender] &&
+        !isNaN(text) &&
+        parseInt(text) > 0 &&
+        parseInt(text) <=
+            pendingSearch[sender]
+                .results.length
+
+}, async (
+    chathubro,
+    mek,
+    m,
+    {
+        body,
+        sender,
+        reply,
+        from
+    }
+) => {
+
+    await chathubro.sendMessage(
+        from,
+        {
+            react: {
+                text: "✅",
+                key: m.key
+            }
+        }
+    );
+
+    const index =
+        parseInt(body.trim()) - 1;
+
+    const selected =
+        pendingSearch[sender]
+            .results[index];
+
+    delete pendingSearch[sender];
+
+    const metadata =
+        await getMovieMetadata(
+            selected.movieUrl
+        );
+
+    let msg =
+        `╭━━━〔 *🎬 MOVIE DETAILS* 〕━━━╮\n`;
+
+    msg +=
+        `┃ *Title:* ${metadata.title}\n`;
+
+    msg +=
+        `┣━━━━━━━━━━━━━━━━━━━━━━━┫\n`;
+
+    msg +=
+        `┃ 🗣️ *Language:* ${metadata.language || "N/A"}\n`;
+
+    msg +=
+        `┃ ⏱️ *Duration:* ${metadata.duration || "N/A"}\n`;
+
+    msg +=
+        `┃ ⭐ *IMDb Rating:* ${metadata.imdb || "N/A"}\n`;
+
+    msg +=
+        `┃ 🎭 *Genres:* ${metadata.genres.join(", ") || "N/A"}\n`;
+
+    msg +=
+        `┃ 🎥 *Directors:* ${metadata.directors.join(", ") || "N/A"}\n`;
+
+    msg +=
+        `┃ 🌟 *Stars:* ${metadata.stars.slice(0, 4).join(", ")}${metadata.stars.length > 4 ? "..." : ""}\n`;
+
+    msg +=
+        `╰━━━━━━━━━━━━━━━━━━━━━━━╯\n\n`;
+
+    msg +=
+        `> *🔗 Fetching secure download links (<2GB), please wait...*`;
+
+    if (metadata.thumbnail) {
+
+        await chathubro.sendMessage(
+            from,
+            {
+                image: {
+                    url:
+                        metadata.thumbnail
+                },
+
+                caption:
+                    msg
+            },
+            {
+                quoted:
+                    mek
+            }
+        );
+
+    } else {
+
+        await chathubro.sendMessage(
+            from,
+            {
+                text:
+                    msg
+            },
+            {
+                quoted:
+                    mek
+            }
+        );
+
+    }
+
+    const downloadLinks =
+        await getPixeldrainLinks(
+            selected.movieUrl
+        );
+
+    if (!downloadLinks.length) {
+
+        return reply(
+            "❌ *No download links found under 2GB size limit!*"
+        );
+
+    }
+
+    pendingQuality[sender] = {
+
+        movie: {
+            metadata,
+            downloadLinks
+        },
+
+        timestamp:
+            Date.now()
+
+    };
+
+    let qualityMsg =
+        `╭━━━〔 *📥 AVAILABLE QUALITIES* 〕━━━╮\n`;
+
+    downloadLinks.forEach(
+        (d, i) => {
+
+            qualityMsg +=
+                `┃ *${i + 1}.* 🎬 *${d.quality}* 📂 *[${d.size}]*\n`;
+
+        }
+    );
+
+    qualityMsg +=
+        `┣━━━━━━━━━━━━━━━━━━━━━━━┫\n`;
+
+    qualityMsg +=
+        `┃ ⚠️ *Note: Max file size limit is 2GB.*\n`;
+
+    qualityMsg +=
+        `╰━━━━━━━━━━━━━━━━━━━━━━━╯\n\n`;
+
+    qualityMsg +=
+        `> *💡 Reply with the quality number to download as a document.*`;
+
+    await chathubro.sendMessage(
+        from,
+        {
+            text:
+                qualityMsg
+        },
+        {
+            quoted:
+                mek
+        }
+    );
+
+});
+
+
+// ==========================================
+// QUALITY SELECTION / DOWNLOAD
+// ==========================================
+
+cmd({
+
+    filter: (
+        text,
+        { sender }
+    ) =>
+        pendingQuality[sender] &&
+        !isNaN(text) &&
+        parseInt(text) > 0 &&
+        parseInt(text) <=
+            pendingQuality[sender]
+                .movie
+                .downloadLinks.length
+
+}, async (
+    chathubro,
+    mek,
+    m,
+    {
+        body,
+        sender,
+        reply,
+        from
+    }
+) => {
+
+    await chathubro.sendMessage(
+        from,
+        {
+            react: {
+                text: "✅",
+                key: m.key
+            }
+        }
+    );
+
+    const index =
+        parseInt(body.trim()) - 1;
+
+    const { movie } =
+        pendingQuality[sender];
+
+    delete pendingQuality[sender];
+
+    const selectedLink =
+        movie.downloadLinks[index];
+
+    reply(
+        `╭━━━〔 *⬇️ DOWNLOADING* 〕━━━╮
+┃
+┃ ⏳ *Preparing ${selectedLink.quality} movie...*
+┃ 📂 Size: ${selectedLink.size}
+┃ 🚀 Please wait, sending as document.
+┃
+╰━━━━━━━━━━━━━━━━━━━━━━━╯`
+    );
+
+    try {
+
+        const directUrl =
+            getDirectPixeldrainUrl(
+                selectedLink.link
+            );
+
+        await chathubro.sendMessage(
+            from,
+            {
+
+                document: {
+                    url:
+                        directUrl
+                },
+
+                mimetype:
+                    "video/mp4",
+
+                fileName:
+                    `${movie.metadata.title.substring(0, 50)} - ${selectedLink.quality}.mp4`
+                        .replace(
+                            /[^\w\s.-]/gi,
+                            ''
+                        ),
+
+                caption:
+                    `╭━━━〔 *🍿 MOVIE DOWNLOADED* 〕━━━╮
+┃
+┃ 🎬 *Title:* ${movie.metadata.title}
+┃ 📊 *Quality:* ${selectedLink.quality}
+┃ 💾 *File Size:* ${selectedLink.size}
+┃
+┣━━━━━━━━━━━━━━━━━━━━━━━┫
+┃ 🚀 *Enjoy your movie!* ✨
+╰━━━━━━━━━━━━━━━━━━━━━━━╯
+
+> *© 2026 | Powered by NAWAZ MD*`
+
+            },
+            {
+                quoted:
+                    mek
+            }
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Send document error:",
+            error
+        );
+
+        reply(
+            `❌ *Failed to send movie document:* ${error.message || "Unknown error"}`
+        );
+
+    }
+
+});
+
+
+// ==========================================
+// CLEANUP
+// ==========================================
+
+setInterval(
+    () => {
+
+        const now =
+            Date.now();
+
+        const timeout =
+            10 * 60 * 1000;
+
+        for (
+            const s in pendingSearch
+        ) {
+
+            if (
+                now -
+                pendingSearch[s]
+                    .timestamp >
+                timeout
+            ) {
+
+                delete pendingSearch[s];
+
+            }
+
+        }
+
+        for (
+            const s in pendingQuality
+        ) {
+
+            if (
+                now -
+                pendingQuality[s]
+                    .timestamp >
+                timeout
+            ) {
+
+                delete pendingQuality[s];
+
+            }
+
+        }
+
+    },
+    5 * 60 * 1000
+);
+
+
+// ==========================================
+// ESM EXPORT
+// ==========================================
+
+export {
+    pendingSearch,
+    pendingQuality
+};
