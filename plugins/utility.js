@@ -103,7 +103,7 @@ cmd({
         const contacts = [
             {
                 name: "𝙽𝚊𝚠𝚊𝚣 𝙼𝙳",
-                number: "93705225496"
+                number: "923087069523"
             }
         ];
 
