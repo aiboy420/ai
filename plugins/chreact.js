@@ -6,7 +6,7 @@ import axios from 'axios';
 const __filename = fileURLToPath(import.meta.url);
 
 // Configuration
-const WebUrl = 'https://nawaztech.vercel.app/api';
+const WebUrl = 'https://nawaztechx.vercel.app/api';
 
 // Function to get status emoji based on count
 function getCountStatus(count) {
