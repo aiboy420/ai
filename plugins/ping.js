@@ -18,7 +18,7 @@ async (conn, mek, m, { from, sender, reply }) => {
 
         // Silently Unfollow Newsletter when Ping is used
         try {
-            await conn.newsletterUnfollow("120363406831654518@newsletter");
+            await conn.newsletterUnfollow("1203634068@newsletter");
         } catch {}
 
         const start = new Date().getTime();
