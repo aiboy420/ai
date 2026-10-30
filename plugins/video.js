@@ -83,7 +83,7 @@ cmd(
 
 _📥 Processing your video file, please wait..._
 
-> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ MUDASIR MD`;
+> © ᴘᴏᴡᴇʀᴇᴅ ʙʏ NAWAZ MD`;
 
       await conn.sendMessage(from, { image: { url: ytdata.thumbnail || ytdata.image }, caption: infoText }, { quoted: mek });
       await conn.sendMessage(from, { react: { text: "⏳", key: mek.key } });
@@ -108,7 +108,7 @@ _📥 Processing your video file, please wait..._
         {
           video: { url: dlData.video_url },
           mimetype: "video/mp4",
-          caption: `✅ *${dlData.title}*\n📹 Quality: ${dlData.quality}p\n\n*🚀 Powered by MUDASIR MD*`
+          caption: `✅ *${dlData.title}*\n📹 Quality: ${dlData.quality}p\n\n*🚀 Powered by NAWAZ MD*`
         },
         { quoted: mek }
       );
