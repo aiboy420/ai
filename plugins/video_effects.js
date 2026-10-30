@@ -54,7 +54,7 @@ videoKeys.forEach((key, index) => {
             }, { quoted: mek });
         } catch (e) {
             console.error(`Error in video${cmdNum} command:`, e);
-            await reply(`❌ Failed to play video ${cmdNum}.\n\n*_ᴘᴏᴡᴇʀᴇᴅ ʙʏ MUDASIR ᴍᴅ_*`);
+            await reply(`❌ Failed to play video ${cmdNum}.\n\n*_ᴘᴏᴡᴇʀᴇᴅ ʙʏ NAWAZ ᴍᴅ_*`);
         }
     });
 });
