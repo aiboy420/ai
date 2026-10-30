@@ -49,11 +49,11 @@ cmd({
 
     await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
 
-    await reply(`✅ *Video Successfully Uploaded*\n\n🔗 URL: ${videoUrl}\n\n> *ᴘᴏᴡᴇʀᴇᴅ ʙʏ MUDASIR ᴍᴅ*`);
+    await reply(`✅ *Video Successfully Uploaded*\n\n🔗 URL: ${videoUrl}\n\n> *ᴘᴏᴡᴇʀᴇᴅ ʙʏ NAWAZ ᴍᴅ*`);
 
   } catch (error) {
     console.error("Videourl error:", error);
     await conn.sendMessage(from, { react: { text: "❌", key: mek.key } });
-    await reply(`❌ *Error:* ${error.message || error}\n\n*_ᴘᴏᴡᴇʀᴇᴅ ʙʏ MUDASIR ᴍᴅ_*`);
+    await reply(`❌ *Error:* ${error.message || error}\n\n*_ᴘᴏᴡᴇʀᴇᴅ ʙʏ NAWAZ ᴍᴅ_*`);
   }
 });
